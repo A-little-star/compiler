@@ -1,19 +1,20 @@
 #ifndef AST_H
 #define AST_H
 #include <iostream>
+#include <cstring>
 class BaseAST {
     public:
         virtual ~BaseAST() = default;
 
-        virtual void Dump() const = 0;
+        virtual std::string Dump() const = 0;
 };
 
 class CompUnitAST : public BaseAST {
     public:
         std::unique_ptr<BaseAST> func_def;
 
-        void Dump() const override {
-            func_def->Dump();
+        std::string Dump() const override {
+            return func_def->Dump();
         }
 };
 
@@ -23,7 +24,13 @@ class FuncDefAST : public BaseAST {
         std::string ident;
         std::unique_ptr<BaseAST> block;
 
-        void Dump() const override {
+        std::string Dump() const override {
+            std::string res = "fun @";
+            res += ident;
+            res += "(): ";
+            res += func_type->Dump();
+            res += block->Dump();
+            return res;
             std::cout << "fun @" << ident << "(): ";
             func_type->Dump();
             block->Dump();
@@ -34,9 +41,9 @@ class FuncTypeAST : public BaseAST {
     public:
         std::string type;
 
-        void Dump() const override {
+        std::string Dump() const override {
             if (type == "int")
-                std::cout << "i32" << ' ';
+                return "i32";
         }
 };
 
@@ -44,7 +51,11 @@ class BlockAST : public BaseAST {
     public:
         std::unique_ptr<BaseAST> stmt;
 
-        void Dump() const override {
+        std::string Dump() const override {
+            std::string res = "{\n%entry:\n";
+            res += stmt->Dump();
+            res += "\n}";
+            return res;
             std::cout << "{" << std::endl << "%entry:" << std::endl;
             stmt->Dump();
             std::cout << std::endl << "}";
@@ -56,7 +67,10 @@ class StmtAST : public BaseAST {
         std::string ret;
         int number;
 
-        void Dump() const override {
+        std::string Dump() const override {
+            std::string res = "  ret ";
+            res += std::to_string(number);
+            return res;
             std::cout << "  ret " << number;
         }
 };

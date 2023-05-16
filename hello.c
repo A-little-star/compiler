@@ -1,5 +1,6 @@
+/* This is a comment.*/
 int main()
 {
     // ignore me
-    return 0;
+    return 3;
 }
