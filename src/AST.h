@@ -57,7 +57,7 @@ class StmtAST : public BaseAST {
         int number;
 
         void Dump() const override {
-            std::cout << "ret " << number;
+            std::cout << "  ret " << number;
         }
 };
 
