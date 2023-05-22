@@ -7,6 +7,193 @@
 static int reg_id = 0;
 extern int val_id;
 
+void Ope_Num_Prepare_ii(std::string &res, const koopa_raw_value_t &value, std::string &opnum1, std::string &opnum2)
+{
+    bool zero1 = false, zero2 = false;
+    const auto &kind = value->kind;
+    // 操作数准备
+    if (kind.data.binary.lhs->kind.data.integer.value == 0) zero1 = true;
+    if (kind.data.binary.rhs->kind.data.integer.value == 0) zero2 = true;
+    if (!zero1)
+    {
+        res += "  li t";
+        res += std::to_string(reg_id);
+        res += ", ";
+        res += Visit(kind.data.binary.lhs->kind.data.integer);
+        res += "\n";
+        opnum1 = "t";
+        opnum1 += std::to_string(reg_id);
+    }
+    else
+        opnum1 = "x0";
+    if (!zero2)
+    {
+        res += "  li t";
+        res += std::to_string(reg_id + 1);
+        res += ", ";
+        res += Visit(kind.data.binary.rhs->kind.data.integer);
+        res += "\n";
+        opnum2 = "t";
+        opnum2 += std::to_string(reg_id + 1);
+    }
+    else
+        opnum2 = "x0";
+}
+
+int Ope_Num_Prepare_ie(std::string &res, const koopa_raw_value_t &value, std::string &opnum1, std::string &opnum2)
+{
+    bool zero1 = false, zero2 = false;
+    const auto &kind = value->kind;
+
+    if (kind.data.binary.lhs->kind.data.integer.value == 0) zero1 = true;
+    if (!Is_Used_By(value, kind.data.binary.rhs)) res += Visit(kind.data.binary.rhs);
+    int r_id = reg_id - 1;
+    if (!zero1)
+    {
+        res += "  li t";
+        res += std::to_string(reg_id);
+        res += ", ";
+        res += Visit(kind.data.binary.lhs->kind.data.integer);
+        res += "\n";
+        opnum1 = "t";
+        opnum1 += std::to_string(reg_id);
+    }
+    else
+        opnum1 = "x0";
+
+    return r_id;
+}
+
+int Ope_Num_Prepare_ei(std::string &res, const koopa_raw_value_t &value, std::string &opnum1, std::string &opnum2)
+{
+    bool zero1 = false, zero2 = false;
+    const auto &kind = value->kind;
+    // 操作数准备
+    if (kind.data.binary.rhs->kind.data.integer.value == 0) zero2 = true;
+    if (!Is_Used_By(value, kind.data.binary.lhs)) res += Visit(kind.data.binary.lhs);
+    int l_id = reg_id - 1;
+    if (!zero2)
+    {
+        res += "  li t";
+        res += std::to_string(reg_id);
+        res += ", ";
+        res += Visit(kind.data.binary.rhs->kind.data.integer);
+        res += "\n";
+        opnum2 = "t";
+        opnum2 += std::to_string(reg_id);
+    }
+    else 
+        opnum2 = "x0";
+
+    return l_id;
+}
+
+void Gen_Asm(std::string &res, const koopa_raw_value_t &value, std::string &opnum1, std::string &opnum2, std::string op)
+{
+    const auto &kind = value->kind;
+    switch (kind.data.binary.lhs->kind.tag)
+    {
+        case KOOPA_RVT_INTEGER:
+        {
+            switch (kind.data.binary.rhs->kind.tag)
+            {
+                case KOOPA_RVT_INTEGER:
+                {
+                    // 操作数准备
+                    Ope_Num_Prepare_ii(res, value, opnum1, opnum2);
+
+                    // 执行指令
+                    res += "  ";
+                    res += op;
+                    res += " t";
+                    res += std::to_string(reg_id);
+                    res += ", ";
+                    res += opnum1;
+                    res += ", ";
+                    res += opnum2;
+                    res += "\n";
+
+                    // 分配一个reg_id
+                    reg_id ++;
+                    break;
+                }
+                case KOOPA_RVT_BINARY:
+                {
+                    // 操作数准备
+                    int r_id = Ope_Num_Prepare_ie(res, value, opnum1, opnum2);
+
+                    // 执行指令
+                    res += "  ";
+                    res += op;
+                    res += " t";
+                    res += std::to_string(reg_id);
+                    res += ", ";
+                    res += opnum1;
+                    res += ", t";
+                    res += std::to_string(r_id);
+                    res += "\n";
+
+                    // 分配一个reg_id
+                    reg_id ++;
+                    break;
+                }
+            }
+            break;
+        }
+        case KOOPA_RVT_BINARY:
+        {
+            switch (kind.data.binary.rhs->kind.tag)
+            {
+                case KOOPA_RVT_INTEGER:
+                {
+                    // 操作数准备
+                    int l_id = Ope_Num_Prepare_ei(res, value, opnum1, opnum2);
+                    
+                    // 执行指令
+                    res += "  ";
+                    res += op;
+                    res += " t";
+                    res += std::to_string(reg_id);
+                    res += ", ";
+                    res += opnum2;
+                    res += ", t";
+                    res += std::to_string(l_id);
+                    res += "\n";
+
+                    // 分配一个reg_id
+                    reg_id ++;
+                    break;
+                }
+                case KOOPA_RVT_BINARY:
+                {
+                    // 将两个操作数准备到寄存器中
+                    if (!Is_Used_By(value, kind.data.binary.lhs)) res += Visit(kind.data.binary.lhs);
+                    int l_id = reg_id - 1;
+                    if (!Is_Used_By(value, kind.data.binary.rhs)) res += Visit(kind.data.binary.rhs);
+                    int r_id = reg_id - 2;
+                    
+                    // 执行mul指令
+                    // 执行指令
+                    res += "  ";
+                    res += op;
+                    res += " t";
+                    res += std::to_string(reg_id);
+                    res += ", t";
+                    res += std::to_string(l_id);
+                    res += ", t";
+                    res += std::to_string(r_id);
+                    res += "\n";
+
+                    // 分配一个reg_id
+                    reg_id ++;
+                    break;
+                }
+            }
+            break;
+        }
+    }
+}
+
 std::string Visit(const koopa_raw_program_t &program)
 {
     std::string res = "  .text\n";
@@ -113,34 +300,7 @@ std::string Visit(const koopa_raw_value_t &value)
                                 case KOOPA_RVT_INTEGER:
                                 {
                                     // 操作数准备
-                                    if (kind.data.binary.lhs->kind.data.integer.value == 0) zero1 = true;
-                                    if (kind.data.binary.rhs->kind.data.integer.value == 0) zero2 = true;
-                                    if (!zero1)
-                                    {
-                                        res += "  li t";
-                                        res += std::to_string(reg_id);
-                                        res += ", ";
-                                        res += Visit(kind.data.binary.lhs->kind.data.integer);
-                                        res += "\n";
-                                        opnum1 = "t";
-                                        opnum1 += std::to_string(reg_id);
-                                    }
-                                    else
-                                        opnum1 = "x0";
-                                    if (!zero2)
-                                    {
-                                        res += "  li t";
-                                        if (!zero1) res += std::to_string(reg_id + 1);
-                                        else res += std::to_string(reg_id + 1);
-                                        res += ", ";
-                                        res += Visit(kind.data.binary.rhs->kind.data.integer);
-                                        res += "\n";
-                                        opnum2 = "t";
-                                        if (!zero1) opnum2 += std::to_string(reg_id + 1);
-                                        else opnum2 += std::to_string(reg_id);
-                                    }
-                                    else
-                                        opnum2 = "x0";
+                                    Ope_Num_Prepare_ii(res, value, opnum1, opnum2);
 
                                     // 执行xor指令
                                     res += "  xor t";
@@ -165,21 +325,7 @@ std::string Visit(const koopa_raw_value_t &value)
                                 case KOOPA_RVT_BINARY:
                                 {
                                     // 操作数准备
-                                    if (kind.data.binary.lhs->kind.data.integer.value == 0) zero1 = true;
-                                    if (!Is_Used_By(value, kind.data.binary.rhs)) res += Visit(kind.data.binary.rhs);
-                                    int r_id = reg_id - 1;
-                                    if (!zero1)
-                                    {
-                                        res += "  li t";
-                                        res += std::to_string(reg_id);
-                                        res += ", ";
-                                        res += Visit(kind.data.binary.lhs->kind.data.integer);
-                                        res += "\n";
-                                        opnum1 = "t";
-                                        opnum1 += std::to_string(reg_id);
-                                    }
-                                    else
-                                        opnum1 = "x0";
+                                    int r_id = Ope_Num_Prepare_ie(res, value, opnum1, opnum2);
 
                                     // 执行xor指令
                                     res += "  xor t";
@@ -211,21 +357,7 @@ std::string Visit(const koopa_raw_value_t &value)
                                 case KOOPA_RVT_INTEGER:
                                 {
                                     // 操作数准备
-                                    if (kind.data.binary.rhs->kind.data.integer.value == 0) zero2 = true;
-                                    if (!Is_Used_By(value, kind.data.binary.lhs)) res += Visit(kind.data.binary.lhs);
-                                    int l_id = reg_id - 1;
-                                    if (!zero2)
-                                    {
-                                        res += "  li t";
-                                        res += std::to_string(reg_id);
-                                        res += ", ";
-                                        res += Visit(kind.data.binary.rhs->kind.data.integer);
-                                        res += "\n";
-                                        opnum2 = "t";
-                                        opnum2 += std::to_string(reg_id);
-                                    }
-                                    else 
-                                        opnum2 = "x0";
+                                    int l_id = Ope_Num_Prepare_ei(res, value, opnum1, opnum2);
 
                                     // 执行xor指令
                                     res += "  xor t";
@@ -292,34 +424,7 @@ std::string Visit(const koopa_raw_value_t &value)
                                 case KOOPA_RVT_INTEGER:
                                 {
                                     // 操作数准备
-                                    if (kind.data.binary.lhs->kind.data.integer.value == 0) zero1 = true;
-                                    if (kind.data.binary.rhs->kind.data.integer.value == 0) zero2 = true;
-                                    if (!zero1)
-                                    {
-                                        res += "  li t";
-                                        res += std::to_string(reg_id);
-                                        res += ", ";
-                                        res += Visit(kind.data.binary.lhs->kind.data.integer);
-                                        res += "\n";
-                                        opnum1 = "t";
-                                        opnum1 += std::to_string(reg_id);
-                                    }
-                                    else
-                                        opnum1 = "x0";
-                                    if (!zero2)
-                                    {
-                                        res += "  li t";
-                                        if (!zero1) res += std::to_string(reg_id + 1);
-                                        else res += std::to_string(reg_id);
-                                        res += ", ";
-                                        res += Visit(kind.data.binary.rhs->kind.data.integer);
-                                        res += "\n";
-                                        opnum2 = "t";
-                                        if (!zero1) opnum2 += std::to_string(reg_id + 1);
-                                        else opnum2 += std::to_string(reg_id);
-                                    }
-                                    else
-                                        opnum2 = "x0";
+                                    Ope_Num_Prepare_ii(res, value, opnum1, opnum2);
 
                                     // 执行xor指令
                                     res += "  xor t";
@@ -344,21 +449,7 @@ std::string Visit(const koopa_raw_value_t &value)
                                 case KOOPA_RVT_BINARY:
                                 {
                                     // 操作数准备
-                                    if (kind.data.binary.lhs->kind.data.integer.value == 0) zero1 = true;
-                                    if (!Is_Used_By(value, kind.data.binary.rhs)) res += Visit(kind.data.binary.rhs);
-                                    int r_id = reg_id - 1;
-                                    if (!zero1)
-                                    {
-                                        res += "  li t";
-                                        res += std::to_string(reg_id);
-                                        res += ", ";
-                                        res += Visit(kind.data.binary.lhs->kind.data.integer);
-                                        res += "\n";
-                                        opnum1 = "t";
-                                        opnum1 += std::to_string(reg_id);
-                                    }
-                                    else
-                                        opnum1 = "x0";
+                                    int r_id = Ope_Num_Prepare_ie(res, value, opnum1, opnum2);
 
                                     // 执行xor指令
                                     res += "  xor t";
@@ -390,21 +481,7 @@ std::string Visit(const koopa_raw_value_t &value)
                                 case KOOPA_RVT_INTEGER:
                                 {
                                     // 操作数准备
-                                    if (kind.data.binary.rhs->kind.data.integer.value == 0) zero2 = true;
-                                    if (!Is_Used_By(value, kind.data.binary.lhs)) res += Visit(kind.data.binary.lhs);
-                                    int l_id = reg_id - 1;
-                                    if (!zero2)
-                                    {
-                                        res += "  li t";
-                                        res += std::to_string(reg_id);
-                                        res += ", ";
-                                        res += Visit(kind.data.binary.rhs->kind.data.integer);
-                                        res += "\n";
-                                        opnum2 = "t";
-                                        opnum2 += std::to_string(reg_id);
-                                    }
-                                    else 
-                                        opnum2 = "x0";
+                                    int l_id = Ope_Num_Prepare_ei(res, value, opnum1, opnum2);
 
                                     // 执行xor指令
                                     res += "  xor t";
@@ -462,19 +539,443 @@ std::string Visit(const koopa_raw_value_t &value)
                 }
                 case KOOPA_RBO_GT:
                 {
+                    switch (kind.data.binary.lhs->kind.tag)
+                    {
+                        case KOOPA_RVT_INTEGER:
+                        {
+                            switch (kind.data.binary.rhs->kind.tag)
+                            {
+                                case KOOPA_RVT_INTEGER:
+                                {
+                                    // 操作数准备
+                                    Ope_Num_Prepare_ii(res, value, opnum1, opnum2);
 
+                                    // 执行sgt指令
+                                    res += "  sgt t";
+                                    res += std::to_string(reg_id);
+                                    res += ", ";
+                                    res += opnum1;
+                                    res += ", ";
+                                    res += opnum2;
+                                    res += "\n";
+
+                                    // 分配reg_id
+                                    reg_id ++;
+                                    break;
+                                }
+                                case KOOPA_RVT_BINARY:
+                                {
+                                    // 操作数准备
+                                    int r_id = Ope_Num_Prepare_ie(res, value, opnum1, opnum2);
+
+                                    // 执行sgt指令
+                                    res += "  sgt t";
+                                    res += std::to_string(reg_id);
+                                    res += ", ";
+                                    res += opnum1;
+                                    res += ", t";
+                                    res += std::to_string(r_id);
+                                    res += "\n";
+
+                                    // 分配reg_id
+                                    reg_id ++;
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                        case KOOPA_RVT_BINARY:
+                        {
+                            switch (kind.data.binary.rhs->kind.tag)
+                            {
+                                case KOOPA_RVT_INTEGER:
+                                {
+                                    // 操作数准备
+                                    int l_id = Ope_Num_Prepare_ei(res, value, opnum1, opnum2);
+
+                                    // 执行sgt指令
+                                    res += "  sgt t";
+                                    res += std::to_string(reg_id);
+                                    res += ", t";
+                                    res += std::to_string(l_id);
+                                    res += ", ";
+                                    res += opnum2;
+                                    res += "\n";
+
+                                    // 分配reg_id
+                                    reg_id ++;
+                                    break;
+                                }
+                                case KOOPA_RVT_BINARY:
+                                {
+                                    // 操作数准备
+                                    if (!Is_Used_By(value, kind.data.binary.lhs)) res += Visit(kind.data.binary.lhs);
+                                    int l_id = reg_id - 1;
+                                    if (!Is_Used_By(value, kind.data.binary.rhs)) res += Visit(kind.data.binary.rhs);
+                                    int r_id = reg_id - 1;
+
+                                    // 执行sgt指令
+                                    res += "  sgt t";
+                                    res += std::to_string(reg_id);
+                                    res += ", t";
+                                    res += std::to_string(l_id);
+                                    res += ", t";
+                                    res += std::to_string(r_id);
+                                    res += "\n";
+
+                                    // 分配reg_id
+                                    reg_id ++;
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                    break;
                 }
                 case KOOPA_RBO_LT:
                 {
+                    switch (kind.data.binary.lhs->kind.tag)
+                    {
+                        case KOOPA_RVT_INTEGER:
+                        {
+                            switch (kind.data.binary.rhs->kind.tag)
+                            {
+                                case KOOPA_RVT_INTEGER:
+                                {
+                                    // 操作数准备
+                                    Ope_Num_Prepare_ii(res, value, opnum1, opnum2);
 
+                                    // slt指令
+                                    res += "  slt t";
+                                    res += std::to_string(reg_id);
+                                    res += ", ";
+                                    res += opnum1;
+                                    res += ", ";
+                                    res += opnum2;
+                                    res += "\n";
+
+                                    // 分配reg_id
+                                    reg_id ++;
+                                    break;
+                                }
+                                case KOOPA_RVT_BINARY:
+                                {
+                                    // 操作数准备
+                                    int r_id = Ope_Num_Prepare_ie(res, value, opnum1, opnum2);
+
+                                    // 执行slt指令
+                                    res += "  slt t";
+                                    res += std::to_string(reg_id);
+                                    res += ", ";
+                                    res += opnum1;
+                                    res += ", t";
+                                    res += std::to_string(r_id);
+                                    res += "\n";
+
+                                    // 分配reg_id
+                                    reg_id ++;
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                        case KOOPA_RVT_BINARY:
+                        {
+                            switch (kind.data.binary.rhs->kind.tag)
+                            {
+                                case KOOPA_RVT_INTEGER:
+                                {
+                                    // 操作数准备
+                                    int l_id = Ope_Num_Prepare_ei(res, value, opnum1, opnum2);
+
+                                    // 执行slt指令
+                                    res += "  slt t";
+                                    res += std::to_string(reg_id);
+                                    res += ", t";
+                                    res += std::to_string(l_id);
+                                    res += ", ";
+                                    res += opnum2;
+                                    res += "\n";
+
+                                    // 分配reg_id
+                                    reg_id ++;
+                                    break;
+                                }
+                                case KOOPA_RVT_BINARY:
+                                {
+                                    // 操作数准备
+                                    if (!Is_Used_By(value, kind.data.binary.lhs)) res += Visit(kind.data.binary.lhs);
+                                    int l_id = reg_id - 1;
+                                    if (!Is_Used_By(value, kind.data.binary.rhs)) res += Visit(kind.data.binary.rhs);
+                                    int r_id = reg_id - 1;
+
+                                    // 执行sgt指令
+                                    res += "  slt t";
+                                    res += std::to_string(reg_id);
+                                    res += ", t";
+                                    res += std::to_string(l_id);
+                                    res += ", t";
+                                    res += std::to_string(r_id);
+                                    res += "\n";
+
+                                    // 分配reg_id
+                                    reg_id ++;
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                    break;
                 }
                 case KOOPA_RBO_GE:
                 {
+                    switch (kind.data.binary.lhs->kind.tag)
+                    {
+                        case KOOPA_RVT_INTEGER:
+                        {
+                            switch (kind.data.binary.rhs->kind.tag)
+                            {
+                                case KOOPA_RVT_INTEGER:
+                                {
+                                    // 操作数准备
+                                    Ope_Num_Prepare_ii(res, value, opnum1, opnum2);
 
+                                    // 执行slt指令
+                                    res += "  slt t";
+                                    res += std::to_string(reg_id);
+                                    res += ", ";
+                                    res += opnum1;
+                                    res += ", ";
+                                    res += opnum2;
+                                    res += "\n";
+
+                                    // 执行seqz指令
+                                    res += "  seqz t";
+                                    res += std::to_string(reg_id);
+                                    res += ", t";
+                                    res += std::to_string(reg_id);
+                                    res += "\n";
+
+                                    // 分配reg_id
+                                    reg_id ++;
+                                    break;
+                                }
+                                case KOOPA_RVT_BINARY:
+                                {
+                                    // 操作数准备
+                                    int r_id = Ope_Num_Prepare_ie(res, value, opnum1, opnum2);
+
+                                    // 执行slt指令
+                                    res += "  slt t";
+                                    res += std::to_string(reg_id);
+                                    res += ", ";
+                                    res += opnum1;
+                                    res += ", t";
+                                    res += std::to_string(r_id);
+                                    res += "\n";
+
+                                    // 执行seqz指令
+                                    res += "  seqz t";
+                                    res += std::to_string(reg_id);
+                                    res += ", t";
+                                    res += std::to_string(reg_id);
+                                    res += "\n";
+
+                                    // 分配reg_id
+                                    reg_id ++;
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                        case KOOPA_RVT_BINARY:
+                        {
+                            switch (kind.data.binary.rhs->kind.tag)
+                            {
+                                case KOOPA_RVT_INTEGER:
+                                {
+                                    // 操作数准备
+                                    int l_id = Ope_Num_Prepare_ei(res, value, opnum1, opnum2);
+
+                                    // 执行slt指令
+                                    res += "  slt t";
+                                    res += std::to_string(reg_id);
+                                    res += ", t";
+                                    res += std::to_string(l_id);
+                                    res += ", ";
+                                    res += opnum2;
+                                    res += "\n";
+
+                                    // 执行seqz指令
+                                    res += "  seqz t";
+                                    res += std::to_string(reg_id);
+                                    res += ", t";
+                                    res += std::to_string(reg_id);
+                                    res += "\n";
+
+                                    // 分配reg_id
+                                    reg_id ++;
+                                    break;
+                                }
+                                case KOOPA_RVT_BINARY:
+                                {
+                                    // 操作数准备
+                                    if (!Is_Used_By(value, kind.data.binary.lhs)) res += Visit(kind.data.binary.lhs);
+                                    int l_id = reg_id - 1;
+                                    if (!Is_Used_By(value, kind.data.binary.rhs)) res += Visit(kind.data.binary.rhs);
+                                    int r_id = reg_id - 1;
+
+                                    // 执行slt指令
+                                    res += "  slt t";
+                                    res += std::to_string(reg_id);
+                                    res += ", t";
+                                    res += std::to_string(l_id);
+                                    res += ", t";
+                                    res += std::to_string(r_id);
+                                    res += "\n";
+
+                                    // 执行seqz指令
+                                    res += "  seqz t";
+                                    res += std::to_string(reg_id);
+                                    res += ", t";
+                                    res += std::to_string(reg_id);
+                                    res += "\n";
+
+                                    // 分配reg_id
+                                    reg_id ++;
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                    break;
                 }
                 case KOOPA_RBO_LE:
                 {
+                    switch (kind.data.binary.lhs->kind.tag)
+                    {
+                        case KOOPA_RVT_INTEGER:
+                        {
+                            switch (kind.data.binary.rhs->kind.tag)
+                            {
+                                case KOOPA_RVT_INTEGER:
+                                {
+                                    // 操作数准备
+                                    Ope_Num_Prepare_ii(res, value, opnum1, opnum2);
 
+                                    // 执行sgt指令
+                                    res += "  sgt t";
+                                    res += std::to_string(reg_id);
+                                    res += ", ";
+                                    res += opnum1;
+                                    res += ", ";
+                                    res += opnum2;
+                                    res += "\n";
+
+                                    // 执行seqz指令
+                                    res += "  seqz t";
+                                    res += std::to_string(reg_id);
+                                    res += ", t";
+                                    res += std::to_string(reg_id);
+                                    res += "\n";
+
+                                    // 分配reg_id
+                                    reg_id ++;
+                                    break;
+                                }
+                                case KOOPA_RVT_BINARY:
+                                {
+                                    // 操作数准备
+                                    int r_id = Ope_Num_Prepare_ie(res, value, opnum1, opnum2);
+
+                                    // 执行sgt指令
+                                    res += "  sgt t";
+                                    res += std::to_string(reg_id);
+                                    res += ", ";
+                                    res += opnum1;
+                                    res += ", t";
+                                    res += std::to_string(r_id);
+                                    res += "\n";
+
+                                    // 执行seqz指令
+                                    res += "  seqz t";
+                                    res += std::to_string(reg_id);
+                                    res += ", t";
+                                    res += std::to_string(reg_id);
+                                    res += "\n";
+
+                                    // 分配reg_id
+                                    reg_id ++;
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                        case KOOPA_RVT_BINARY:
+                        {
+                            switch (kind.data.binary.rhs->kind.tag)
+                            {
+                                case KOOPA_RVT_INTEGER:
+                                {
+                                    // 操作数准备
+                                    int l_id = Ope_Num_Prepare_ei(res, value, opnum1, opnum2);
+
+                                    // 执行sgt指令
+                                    res += "  sgt t";
+                                    res += std::to_string(reg_id);
+                                    res += ", t";
+                                    res += std::to_string(l_id);
+                                    res += ", ";
+                                    res += opnum2;
+                                    res += "\n";
+
+                                    // 执行seqz指令
+                                    res += "  seqz t";
+                                    res += std::to_string(reg_id);
+                                    res += ", t";
+                                    res += std::to_string(reg_id);
+                                    res += "\n";
+
+                                    // 分配reg_id
+                                    reg_id ++;
+                                    break;
+                                }
+                                case KOOPA_RVT_BINARY:
+                                {
+                                    // 操作数准备
+                                    if (!Is_Used_By(value, kind.data.binary.lhs)) res += Visit(kind.data.binary.lhs);
+                                    int l_id = reg_id - 1;
+                                    if (!Is_Used_By(value, kind.data.binary.rhs)) res += Visit(kind.data.binary.rhs);
+                                    int r_id = reg_id - 1;
+
+                                    // 执行sgt指令
+                                    res += "  sgt t";
+                                    res += std::to_string(reg_id);
+                                    res += ", t";
+                                    res += std::to_string(l_id);
+                                    res += ", t";
+                                    res += std::to_string(r_id);
+                                    res += "\n";
+
+                                    // 执行seqz指令
+                                    res += "  seqz t";
+                                    res += std::to_string(reg_id);
+                                    res += ", t";
+                                    res += std::to_string(reg_id);
+                                    res += "\n";
+
+                                    // 分配reg_id
+                                    reg_id ++;
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                    break;
                 }
                 case KOOPA_RBO_ADD:
                 {
@@ -487,34 +988,7 @@ std::string Visit(const koopa_raw_value_t &value)
                                 case KOOPA_RVT_INTEGER:
                                 {
                                     // 操作数准备
-                                    if (kind.data.binary.lhs->kind.data.integer.value == 0) zero1 = true;
-                                    if (kind.data.binary.rhs->kind.data.integer.value == 0) zero2 = true;
-                                    if (!zero1)
-                                    {
-                                        res += "  li t";
-                                        res += std::to_string(reg_id);
-                                        res += ", ";
-                                        res += Visit(kind.data.binary.lhs->kind.data.integer);
-                                        res += "\n";
-                                        opnum1 = "t";
-                                        opnum1 += std::to_string(reg_id);
-                                    }
-                                    else
-                                        opnum1 = "x0";
-                                    if (!zero2)
-                                    {
-                                        res += "  li t";
-                                        if (!zero1) res += std::to_string(reg_id + 1);
-                                        else res += std::to_string(reg_id);
-                                        res += ", ";
-                                        res += Visit(kind.data.binary.rhs->kind.data.integer);
-                                        res += "\n";
-                                        opnum2 = "t";
-                                        if (!zero1) opnum2 += std::to_string(reg_id + 1);
-                                        else opnum2 += std::to_string(reg_id);
-                                    }
-                                    else
-                                        opnum2 = "x0";
+                                    Ope_Num_Prepare_ii(res, value, opnum1, opnum2);
 
                                     // 执行add指令
                                     res += "  add t";
@@ -532,21 +1006,7 @@ std::string Visit(const koopa_raw_value_t &value)
                                 case KOOPA_RVT_BINARY:
                                 {
                                     // 操作数准备
-                                    if (kind.data.binary.lhs->kind.data.integer.value == 0) zero1 = true;
-                                    if (!Is_Used_By(value, kind.data.binary.rhs)) res += Visit(kind.data.binary.rhs);
-                                    int r_id = reg_id - 1;
-                                    if (!zero1)
-                                    {
-                                        res += "  li t";
-                                        res += std::to_string(reg_id);
-                                        res += ", ";
-                                        res += Visit(kind.data.binary.lhs->kind.data.integer);
-                                        res += "\n";
-                                        opnum1 = "t";
-                                        opnum1 += std::to_string(reg_id);
-                                    }
-                                    else
-                                        opnum1 = "x0";
+                                    int r_id = Ope_Num_Prepare_ie(res, value, opnum1, opnum2);
 
                                     // 执行add指令
                                     res += "  add t";
@@ -571,21 +1031,7 @@ std::string Visit(const koopa_raw_value_t &value)
                                 case KOOPA_RVT_INTEGER:
                                 {
                                     // 操作数准备
-                                    if (kind.data.binary.rhs->kind.data.integer.value == 0) zero2 = true;
-                                    if (!Is_Used_By(value, kind.data.binary.lhs)) res += Visit(kind.data.binary.lhs);
-                                    int l_id = reg_id - 1;
-                                    if (!zero2)
-                                    {
-                                        res += "  li t";
-                                        res += std::to_string(reg_id);
-                                        res += ", ";
-                                        res += Visit(kind.data.binary.rhs->kind.data.integer);
-                                        res += "\n";
-                                        opnum2 = "t";
-                                        opnum2 += std::to_string(reg_id);
-                                    }
-                                    else 
-                                        opnum2 = "x0";
+                                    int l_id = Ope_Num_Prepare_ei(res, value, opnum1, opnum2);
                                     
                                     // 执行add指令
                                     res += "  add t";
@@ -638,34 +1084,7 @@ std::string Visit(const koopa_raw_value_t &value)
                                 case KOOPA_RVT_INTEGER:
                                 {
                                     // 操作数准备
-                                    if (kind.data.binary.lhs->kind.data.integer.value == 0) zero1 = true;
-                                    if (kind.data.binary.rhs->kind.data.integer.value == 0) zero2 = true;
-                                    if (!zero1)
-                                    {
-                                        res += "  li t";
-                                        res += std::to_string(reg_id);
-                                        res += ", ";
-                                        res += Visit(kind.data.binary.lhs->kind.data.integer);
-                                        res += "\n";
-                                        opnum1 = "t";
-                                        opnum1 += std::to_string(reg_id);
-                                    }
-                                    else
-                                        opnum1 = "x0";
-                                    if (!zero2)
-                                    {
-                                        res += "  li t";
-                                        if (!zero1) res += std::to_string(reg_id + 1);
-                                        else res += std::to_string(reg_id);
-                                        res += ", ";
-                                        res += Visit(kind.data.binary.rhs->kind.data.integer);
-                                        res += "\n";
-                                        opnum2 = "t";
-                                        if (!zero1) opnum2 += std::to_string(reg_id + 1);
-                                        else opnum2 += std::to_string(reg_id);
-                                    }
-                                    else
-                                        opnum2 = "x0";
+                                    Ope_Num_Prepare_ii(res, value, opnum1, opnum2);
 
                                     // 执行sub指令
                                     res += "  sub t";
@@ -683,21 +1102,7 @@ std::string Visit(const koopa_raw_value_t &value)
                                 case KOOPA_RVT_BINARY:
                                 {
                                     // 操作数准备
-                                    if (kind.data.binary.lhs->kind.data.integer.value == 0) zero1 = true;
-                                    if (!Is_Used_By(value, kind.data.binary.rhs)) res += Visit(kind.data.binary.rhs);
-                                    int r_id = reg_id - 1;
-                                    if (!zero1)
-                                    {
-                                        res += "  li t";
-                                        res += std::to_string(reg_id);
-                                        res += ", ";
-                                        res += Visit(kind.data.binary.lhs->kind.data.integer);
-                                        res += "\n";
-                                        opnum1 = "t";
-                                        opnum1 += std::to_string(reg_id);
-                                    }
-                                    else
-                                        opnum1 = "x0";
+                                    int r_id = Ope_Num_Prepare_ie(res, value, opnum1, opnum2);
 
                                     // 执行sub指令
                                     res += "  sub t";
@@ -722,21 +1127,7 @@ std::string Visit(const koopa_raw_value_t &value)
                                 case KOOPA_RVT_INTEGER:
                                 {
                                     // 操作数准备
-                                    if (kind.data.binary.rhs->kind.data.integer.value == 0) zero2 = true;
-                                    if (!Is_Used_By(value, kind.data.binary.lhs)) res += Visit(kind.data.binary.lhs);
-                                    int l_id = reg_id - 1;
-                                    if (!zero2)
-                                    {
-                                        res += "  li t";
-                                        res += std::to_string(reg_id);
-                                        res += ", ";
-                                        res += Visit(kind.data.binary.rhs->kind.data.integer);
-                                        res += "\n";
-                                        opnum2 = "t";
-                                        opnum2 += std::to_string(reg_id);
-                                    }
-                                    else 
-                                        opnum2 = "x0";
+                                    int l_id = Ope_Num_Prepare_ei(res, value, opnum1, opnum2);
                                     
                                     // 执行sub指令
                                     res += "  sub t";
@@ -789,34 +1180,7 @@ std::string Visit(const koopa_raw_value_t &value)
                                 case KOOPA_RVT_INTEGER:
                                 {
                                     // 操作数准备
-                                    if (kind.data.binary.lhs->kind.data.integer.value == 0) zero1 = true;
-                                    if (kind.data.binary.rhs->kind.data.integer.value == 0) zero2 = true;
-                                    if (!zero1)
-                                    {
-                                        res += "  li t";
-                                        res += std::to_string(reg_id);
-                                        res += ", ";
-                                        res += Visit(kind.data.binary.lhs->kind.data.integer);
-                                        res += "\n";
-                                        opnum1 = "t";
-                                        opnum1 += std::to_string(reg_id);
-                                    }
-                                    else
-                                        opnum1 = "x0";
-                                    if (!zero2)
-                                    {
-                                        res += "  li t";
-                                        if (!zero1) res += std::to_string(reg_id + 1);
-                                        else res += std::to_string(reg_id);
-                                        res += ", ";
-                                        res += Visit(kind.data.binary.rhs->kind.data.integer);
-                                        res += "\n";
-                                        opnum2 = "t";
-                                        if (!zero1) opnum2 += std::to_string(reg_id + 1);
-                                        else opnum2 += std::to_string(reg_id);
-                                    }
-                                    else
-                                        opnum2 = "x0";
+                                    Ope_Num_Prepare_ii(res, value, opnum1, opnum2);
 
                                     // 执行mul指令
                                     res += "  mul t";
@@ -834,21 +1198,7 @@ std::string Visit(const koopa_raw_value_t &value)
                                 case KOOPA_RVT_BINARY:
                                 {
                                     // 操作数准备
-                                    if (kind.data.binary.lhs->kind.data.integer.value == 0) zero1 = true;
-                                    if (!Is_Used_By(value, kind.data.binary.rhs)) res += Visit(kind.data.binary.rhs);
-                                    int r_id = reg_id - 1;
-                                    if (!zero1)
-                                    {
-                                        res += "  li t";
-                                        res += std::to_string(reg_id);
-                                        res += ", ";
-                                        res += Visit(kind.data.binary.lhs->kind.data.integer);
-                                        res += "\n";
-                                        opnum1 = "t";
-                                        opnum1 += std::to_string(reg_id);
-                                    }
-                                    else
-                                        opnum1 = "x0";
+                                    int r_id = Ope_Num_Prepare_ie(res, value, opnum1, opnum2);
 
                                     // 执行mul指令
                                     res += "  mul t";
@@ -873,21 +1223,7 @@ std::string Visit(const koopa_raw_value_t &value)
                                 case KOOPA_RVT_INTEGER:
                                 {
                                     // 操作数准备
-                                    if (kind.data.binary.rhs->kind.data.integer.value == 0) zero2 = true;
-                                    if (!Is_Used_By(value, kind.data.binary.lhs)) res += Visit(kind.data.binary.lhs);
-                                    int l_id = reg_id - 1;
-                                    if (!zero2)
-                                    {
-                                        res += "  li t";
-                                        res += std::to_string(reg_id);
-                                        res += ", ";
-                                        res += Visit(kind.data.binary.rhs->kind.data.integer);
-                                        res += "\n";
-                                        opnum2 = "t";
-                                        opnum2 += std::to_string(reg_id);
-                                    }
-                                    else 
-                                        opnum2 = "x0";
+                                    int l_id = Ope_Num_Prepare_ei(res, value, opnum1, opnum2);
                                     
                                     // 执行mul指令
                                     res += "  mul t";

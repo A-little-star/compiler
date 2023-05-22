@@ -19,7 +19,6 @@ extern FILE *yyin;
 extern int yyparse(unique_ptr<BaseAST> &ast);
 int val_id = 0;
 int max_id = 0;
-int stack[EXP_STACK_SIZE];
 
 int main(int argc, const char *argv[]) {
   // 解析命令行参数. 测试脚本/评测平台要求你的编译器能接收如下参数:

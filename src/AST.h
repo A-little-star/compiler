@@ -7,10 +7,13 @@
 
 extern int val_id;
 extern int max_id;
-extern int stack[EXP_STACK_SIZE], top = -1;
+
+enum ExpType {EXP, NUM};
+typedef enum ExpType ExpType;
 
 class BaseAST {
     public:
+        mutable ExpType exptype;
         virtual ~BaseAST() = default;
 
         virtual std::string Dump() const = 0;
@@ -76,19 +79,32 @@ class StmtAST : public BaseAST {
         std::unique_ptr<BaseAST> exp;
 
         std::string Dump() const override {
-            std::string res = exp->Dump();
-            res += "  ret %";
-            res += std::to_string(val_id - 1);
+            std::string res;
+            std::string s = exp->Dump();
+
+            if (exp->exptype == EXP)
+            {
+                res += s;
+                res += "  ret";
+                res += " %";
+                res += std::to_string(val_id - 1);
+            }
+            else
+            {
+                res += "  ret ";
+                res += s;
+            }
             return res;
         }
 };
 
 class ExpAST : public BaseAST {
     public:
-        std::unique_ptr<BaseAST> addexp;
+        std::unique_ptr<BaseAST> lorexp;
 
         std::string Dump() const override {
-            std::string res = addexp->Dump();
+            std::string res = lorexp->Dump();
+            exptype = lorexp->exptype;
             return res;
         }
 };
@@ -103,16 +119,19 @@ class PrimaryExpAST : public BaseAST {
             if (exp)
             {
                 res += exp->Dump();
+                exptype = EXP;
             }
             else
             {
-                res += "  %";
-                res += std::to_string(val_id);
-                stack[++ top] = val_id;
-                res += " = add 0, ";
+                exptype = NUM;
+                // res += "  %";
+                // res += std::to_string(val_id);
+                // stack[++ top] = val_id;
+                // res += " = add 0, ";
+                // res += std::to_string(number);
+                // res += "\n";
+                // val_id ++;
                 res += std::to_string(number);
-                res += "\n";
-                val_id ++;
             }
             return res;
         }
@@ -129,9 +148,11 @@ class UnaryExpAST : public BaseAST {
             if (primaryexp)
             {
                 res += primaryexp->Dump();
+                exptype = primaryexp->exptype;
             }
             else
             {
+                exptype = EXP;
                 if (unaryop == "+")
                     res += unaryexp->Dump();
                 else if (unaryop == "-")
@@ -170,28 +191,50 @@ class MulExpAST : public BaseAST {
             if (!mulexp)
             {
                 res += unaryexp->Dump();
+                exptype = unaryexp->exptype;
             }
             else
             {
-
-                if (mulop == "*")
-                    res += " = mul %";
-                else if (mulop == "/")
-                    res += " = div %";
-                else if (mulop == "%")
-                    res += " = mod %";
-                
-
-                res += mulexp->Dump();
-                int id1 = val_id - 1;
-                res += unaryexp->Dump();
-                int id2 = val_id - 1;
+                exptype = EXP; 
+                std::string s1, s2;
+                int id1, id2;
+                s1 += mulexp->Dump();
+                if (mulexp->exptype == EXP) 
+                {
+                    res += s1;
+                    id1 = val_id - 1;
+                }
+                s2 += unaryexp->Dump();
+                if (unaryexp->exptype == EXP)
+                {
+                    res += s2;
+                    id2 = val_id - 1;
+                }
                 res += "  %";
                 res += std::to_string(val_id);
 
-                res += std::to_string(id1);
-                res += ", %";
-                res += std::to_string(id2);
+                if (mulop == "*")
+                    res += " = mul ";
+                else if (mulop == "/")
+                    res += " = div ";
+                else if (mulop == "%")
+                    res += " = mod ";
+                
+                if (mulexp->exptype == EXP)
+                {
+                    res += "%";
+                    res += std::to_string(id1);
+                }
+                else res += s1;
+
+                res += ", ";
+
+                if (unaryexp->exptype == EXP)
+                {
+                    res += "%";
+                    res += std::to_string(id2);
+                }
+                else res += s2;
                 res += "\n";
                 val_id ++;
             }
@@ -210,24 +253,49 @@ class AddExpAST : public BaseAST {
             if (!addexp)
             {
                 res += mulexp->Dump();
+                exptype = mulexp->exptype;
             }
             else
             {
-                res += addexp->Dump();
-                int id1 = val_id - 1;
-                res += mulexp->Dump();
-                int id2 = val_id - 1;
+                exptype = EXP;
+
+                std::string s1, s2;
+                int id1, id2;
+                s1 += addexp->Dump();
+                if (addexp->exptype == EXP) 
+                {
+                    res += s1;
+                    id1 = val_id - 1;
+                }
+                s2 += mulexp->Dump();
+                if (mulexp->exptype == EXP)
+                {
+                    res += s2;
+                    id2 = val_id - 1;
+                }
                 res += "  %";
                 res += std::to_string(val_id);
 
                 if (addop == "+")
-                    res += " = add %";
+                    res += " = add ";
                 else if (addop == "-")
-                    res += " = sub %";
+                    res += " = sub ";
+                
+                if (addexp->exptype == EXP)
+                {
+                    res += "%";
+                    res += std::to_string(id1);
+                }
+                else res += s1;
 
-                res += std::to_string(id1);
-                res += ", %";
-                res += std::to_string(id2);
+                res += ", ";
+
+                if (mulexp->exptype == EXP)
+                {
+                    res += "%";
+                    res += std::to_string(id2);
+                }
+                else res += s2;
                 res += "\n";
                 val_id ++;
             }
@@ -243,15 +311,60 @@ class RelExpAST : public BaseAST {
 
         std::string Dump() const override {
             std::string res;
-            if (addexp)
+            if (!relexp)
             {
                 res += addexp->Dump();
+                exptype = addexp->exptype;
             }
             else
             {
-                res += relexp->Dump();
-                res += relop;
-                res += addexp->Dump();
+
+                printf("Here!\n");
+                exptype = EXP;
+
+                std::string s1, s2;
+                int id1, id2;
+                s1 += relexp->Dump();
+                if (relexp->exptype == EXP) 
+                {
+                    res += s1;
+                    id1 = val_id - 1;
+                }
+                s2 += addexp->Dump();
+                if (addexp->exptype == EXP)
+                {
+                    res += s2;
+                    id2 = val_id - 1;
+                }
+                res += "  %";
+                res += std::to_string(val_id);
+
+                if (relop == "<")
+                    res += " = lt ";
+                else if (relop == ">")
+                    res += " = gt ";
+                else if (relop == "<=")
+                    res += " = le ";
+                else if (relop == ">=")
+                    res += " = ge ";
+                
+                if (relexp->exptype == EXP)
+                {
+                    res += "%";
+                    res += std::to_string(id1);
+                }
+                else res += s1;
+
+                res += ", ";
+
+                if (addexp->exptype == EXP)
+                {
+                    res += "%";
+                    res += std::to_string(id2);
+                }
+                else res += s2;
+                res += "\n";
+                val_id ++;
             }
             return res;
         }
@@ -265,15 +378,54 @@ class EqExpAST : public BaseAST {
 
         std::string Dump() const override {
             std::string res;
-            if (relexp)
+            if (!eqexp)
             {
                 res += relexp->Dump();
+                exptype = relexp->exptype;
             }
             else
             {
-                res += eqexp->Dump();
-                res += eqop;
-                res += relexp->Dump();
+                exptype = EXP;
+
+                std::string s1, s2;
+                int id1, id2;
+                s1 += eqexp->Dump();
+                if (eqexp->exptype == EXP) 
+                {
+                    res += s1;
+                    id1 = val_id - 1;
+                }
+                s2 += relexp->Dump();
+                if (relexp->exptype == EXP)
+                {
+                    res += s2;
+                    id2 = val_id - 1;
+                }
+                res += "  %";
+                res += std::to_string(val_id);
+
+                if (eqop == "==")
+                    res += " = eq ";
+                else if (eqop == "!=")
+                    res += " = ne ";
+                
+                if (eqexp->exptype == EXP)
+                {
+                    res += "%";
+                    res += std::to_string(id1);
+                }
+                else res += s1;
+
+                res += ", ";
+
+                if (relexp->exptype == EXP)
+                {
+                    res += "%";
+                    res += std::to_string(id2);
+                }
+                else res += s2;
+                res += "\n";
+                val_id ++;
             }
             return res;
         }
@@ -287,15 +439,53 @@ class LAndExpAST : public BaseAST{
 
         std::string Dump() const override {
             std::string res;
-            if (eqexp)
+            if (!landexp)
             {
                 res += eqexp->Dump();
+                exptype = eqexp->exptype;
             }
             else
             {
-                res += landexp->Dump();
-                res += landop;
-                res += eqexp->Dump();
+                exptype = EXP;
+
+                std::string s1, s2;
+                int id1, id2;
+                s1 += landexp->Dump();
+                if (landexp->exptype == EXP) 
+                {
+                    res += s1;
+                    id1 = val_id - 1;
+                }
+                s2 += eqexp->Dump();
+                if (eqexp->exptype == EXP)
+                {
+                    res += s2;
+                    id2 = val_id - 1;
+                }
+                res += "  %";
+                res += std::to_string(val_id);
+
+                if (landop == "&&")
+                    res += " = and ";
+                else res += "\nThere is a bug.\n";
+                
+                if (landexp->exptype == EXP)
+                {
+                    res += "%";
+                    res += std::to_string(id1);
+                }
+                else res += s1;
+
+                res += ", ";
+
+                if (eqexp->exptype == EXP)
+                {
+                    res += "%";
+                    res += std::to_string(id2);
+                }
+                else res += s2;
+                res += "\n";
+                val_id ++;
             }
             return res;
         }
@@ -309,15 +499,54 @@ class LOrExpAST : public BaseAST {
 
         std::string Dump() const override {
             std::string res;
-            if (landexp)
+            if (!lorexp)
             {
                 res += landexp->Dump();
+                exptype = landexp->exptype;
             }
             else
             {
-                res += lorexp->Dump();
-                res += lorop;
-                res += landexp->Dump();
+                exptype = EXP;
+
+                std::string s1, s2;
+                int id1, id2;
+                s1 += lorexp->Dump();
+                if (lorexp->exptype == EXP) 
+                {
+                    res += s1;
+                    id1 = val_id - 1;
+                }
+                s2 += landexp->Dump();
+                if (landexp->exptype == EXP)
+                {
+                    res += s2;
+                    id2 = val_id - 1;
+                }
+                res += "  %";
+                res += std::to_string(val_id);
+
+                if (lorop == "||")
+                    res += " = or ";
+                else
+                    res += "\nThere is a bug.\n";
+                
+                if (lorexp->exptype == EXP)
+                {
+                    res += "%";
+                    res += std::to_string(id1);
+                }
+                else res += s1;
+
+                res += ", ";
+
+                if (landexp->exptype == EXP)
+                {
+                    res += "%";
+                    res += std::to_string(id2);
+                }
+                else res += s2;
+                res += "\n";
+                val_id ++;
             }
             return res;
         }
