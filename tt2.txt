@@ -1,0 +1,16 @@
+                                    // 操作数准备
+                                    if (kind.data.binary.lhs->kind.data.integer.value == 0) zero1 = true;
+                                    if (!Is_Used_By(value, kind.data.binary.rhs)) res += Visit(kind.data.binary.rhs);
+                                    int r_id = reg_id - 1;
+                                    if (!zero1)
+                                    {
+                                        res += "  li t";
+                                        res += std::to_string(reg_id);
+                                        res += ", ";
+                                        res += Visit(kind.data.binary.lhs->kind.data.integer);
+                                        res += "\n";
+                                        opnum1 = "t";
+                                        opnum1 += std::to_string(reg_id);
+                                    }
+                                    else
+                                        opnum1 = "x0";

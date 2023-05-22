@@ -13,7 +13,7 @@ endif
 # Flags
 CFLAGS := -Wall -std=c11
 CXXFLAGS := -Wall -Wno-register -std=c++17
-FFLAGS :=
+FFLAGS := 
 BFLAGS := -d
 LDFLAGS :=
 

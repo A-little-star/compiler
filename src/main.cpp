@@ -17,6 +17,9 @@ using namespace std;
 // 看起来会很烦人, 于是干脆采用这种看起来 dirty 但实际很有效的手段
 extern FILE *yyin;
 extern int yyparse(unique_ptr<BaseAST> &ast);
+int val_id = 0;
+int max_id = 0;
+int stack[EXP_STACK_SIZE];
 
 int main(int argc, const char *argv[]) {
   // 解析命令行参数. 测试脚本/评测平台要求你的编译器能接收如下参数:
@@ -35,8 +38,13 @@ int main(int argc, const char *argv[]) {
   auto ret = yyparse(ast);
   assert(!ret);
 
+  printf("AST is built successfully!\n");
+
   // 输出解析得到的 AST, 其实就是个字符串
   string ast_str = ast->Dump();
+
+
+
   const char *ast_str_ptr = ast_str.c_str();
   if (strcmp(mode, "-koopa") == 0)
   {

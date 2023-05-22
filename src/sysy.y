@@ -42,8 +42,9 @@ using namespace std;
 %token <int_val> INT_CONST
 
 // 非终结符的类型定义
-%type <ast_val> FuncDef FuncType Block Stmt
+%type <ast_val> FuncDef FuncType Block Stmt Exp PrimaryExp UnaryExp MulExp AddExp
 %type <int_val> Number
+%type <str_val> UnaryOp
 
 %%
 
@@ -98,10 +99,31 @@ Block
   ;
 
 Stmt
-  : RETURN Number ';' {
+  : RETURN Exp ';' {
     auto ast = new StmtAST();
     ast->ret = "return";
-    ast->number = $2;
+    ast->exp = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  ;
+
+Exp
+  : AddExp {
+    auto ast = new ExpAST();
+    ast->addexp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  ;
+
+PrimaryExp
+  : '(' Exp ')' {
+    auto ast = new PrimaryExpAST();
+    ast->exp = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  | Number {
+    auto ast = new PrimaryExpAST();
+    ast->number = $1;
     $$ = ast;
   }
   ;
@@ -109,7 +131,78 @@ Stmt
 Number
   : INT_CONST {
     $$ = $1;
-    // $$ = new string(to_string($1));
+  }
+  ;
+
+UnaryExp
+  : PrimaryExp {
+    auto ast = new UnaryExpAST();
+    ast->primaryexp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | UnaryOp UnaryExp {
+    auto ast = new UnaryExpAST();
+    ast->unaryop = *unique_ptr<string>($1);
+    ast->unaryexp = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  ;
+
+UnaryOp
+  : '+' {$$ = new string("+");} 
+  | '-' {$$ = new string("-");} 
+  | '!' {$$ = new string("!");}
+  ;
+
+MulExp
+  : UnaryExp {
+    auto ast = new MulExpAST();
+    ast->unaryexp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | MulExp '*' UnaryExp {
+    auto ast = new MulExpAST();
+    ast->mulexp = unique_ptr<BaseAST>($1);
+    ast->mulop = "*";
+    ast->unaryexp = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  | MulExp '/' UnaryExp {
+    auto ast = new MulExpAST();
+    ast->mulexp = unique_ptr<BaseAST>($1);
+    ast->mulop = "/";
+    ast->unaryexp = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  | MulExp '%' UnaryExp {
+    auto ast = new MulExpAST();
+    ast->mulexp = unique_ptr<BaseAST>($1);
+    ast->mulop = "%";
+    ast->unaryexp = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  ;
+
+
+AddExp
+  : MulExp {
+    auto ast = new AddExpAST();
+    ast->mulexp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | AddExp '+' MulExp {
+    auto ast = new AddExpAST();
+    ast->addexp = unique_ptr<BaseAST>($1);
+    ast->addop = "+";
+    ast->mulexp = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  | AddExp '-' MulExp {
+    auto ast = new AddExpAST();
+    ast->addexp = unique_ptr<BaseAST>($1);
+    ast->addop = "-";
+    ast->mulexp = unique_ptr<BaseAST>($3);
+    $$ = ast;
   }
   ;
 

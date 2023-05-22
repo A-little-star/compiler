@@ -698,7 +698,7 @@ YY_DECL
 		}
 
 	{
-#line 31 "/root/compiler/src/sysy.l"
+#line 32 "/root/compiler/src/sysy.l"
 
 
 #line 705 "/root/compiler/build/sysy.lex.cpp"
@@ -761,57 +761,57 @@ do_action:	/* This label is used only to access EOF actions. */
 case 1:
 /* rule 1 can match eol */
 YY_RULE_SETUP
-#line 33 "/root/compiler/src/sysy.l"
+#line 34 "/root/compiler/src/sysy.l"
 { /* 忽略, 不做任何操作 */ }
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 34 "/root/compiler/src/sysy.l"
+#line 35 "/root/compiler/src/sysy.l"
 { /* 忽略, 不做任何操作 */ }
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 35 "/root/compiler/src/sysy.l"
+#line 36 "/root/compiler/src/sysy.l"
 { /* 忽略, 不做任何操作 */ }
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 37 "/root/compiler/src/sysy.l"
+#line 38 "/root/compiler/src/sysy.l"
 { return INT; }
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 38 "/root/compiler/src/sysy.l"
+#line 39 "/root/compiler/src/sysy.l"
 { return RETURN; }
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 40 "/root/compiler/src/sysy.l"
+#line 41 "/root/compiler/src/sysy.l"
 { yylval.str_val = new string(yytext); return IDENT; }
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 42 "/root/compiler/src/sysy.l"
+#line 43 "/root/compiler/src/sysy.l"
 { yylval.int_val = strtol(yytext, nullptr, 0); return INT_CONST; }
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 43 "/root/compiler/src/sysy.l"
+#line 44 "/root/compiler/src/sysy.l"
 { yylval.int_val = strtol(yytext, nullptr, 0); return INT_CONST; }
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 44 "/root/compiler/src/sysy.l"
+#line 45 "/root/compiler/src/sysy.l"
 { yylval.int_val = strtol(yytext, nullptr, 0); return INT_CONST; }
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 46 "/root/compiler/src/sysy.l"
+#line 47 "/root/compiler/src/sysy.l"
 { return yytext[0]; }
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 48 "/root/compiler/src/sysy.l"
+#line 49 "/root/compiler/src/sysy.l"
 ECHO;
 	YY_BREAK
 #line 818 "/root/compiler/build/sysy.lex.cpp"
@@ -1782,5 +1782,5 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 48 "/root/compiler/src/sysy.l"
+#line 49 "/root/compiler/src/sysy.l"
 
