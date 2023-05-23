@@ -2,5 +2,6 @@
 int main()
 {
     // ignore me
-    return (5 > 4) < 6;
+    // -1 + 5 * (3 / 2)
+    return -1 + 5 * (3 / 2);
 }

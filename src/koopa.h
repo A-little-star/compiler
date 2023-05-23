@@ -449,6 +449,8 @@ struct koopa_raw_value_data {
   koopa_raw_slice_t used_by;
   /// Kind of value.
   koopa_raw_value_kind_t kind;
+  /// The name of values that this value used.
+  int used[5];
 };
 
 ///
