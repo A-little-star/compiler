@@ -4,7 +4,7 @@
 #include <memory>
 #include <string>
 #include <fstream>
-#include "AST.h"
+#include "AST.hpp"
 #include "koopa.h"
 #include "vkoopa.h"
 

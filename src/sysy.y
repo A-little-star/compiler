@@ -1,7 +1,7 @@
 %code requires {
   #include <memory>
   #include <string>
-  #include "AST.h"
+  #include "AST.hpp"
 }
 
 %{
@@ -9,7 +9,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
-#include "AST.h"
+#include "AST.hpp"
 
 // 声明 lexer 函数和错误处理函数
 int yylex();
@@ -37,14 +37,15 @@ using namespace std;
 
 // lexer 返回的所有 token 种类的声明
 // 注意 IDENT 和 INT_CONST 会返回 token 的值, 分别对应 str_val 和 int_val
-%token INT RETURN
+%token INT RETURN CONST
 %token <str_val> IDENT LT GT EQ NEQ AND OR
 %token <int_val> INT_CONST
 
 // 非终结符的类型定义
-%type <ast_val> FuncDef FuncType Block Stmt Exp PrimaryExp UnaryExp MulExp AddExp RelExp EqExp LAndExp LOrExp
+%type <ast_val> FuncDef FuncType Block Stmt Exp PrimaryExp UnaryExp MulExp AddExp RelExp EqExp LAndExp LOrExp BlockItems BlockItem 
+%type <ast_val> Decl ConstDecl ConstDefs ConstDef ConstInitVal ConstExp
 %type <int_val> Number
-%type <str_val> UnaryOp
+%type <str_val> UnaryOp LVal BType
 
 %%
 
@@ -91,9 +92,107 @@ FuncType
   ;
 
 Block
-  : '{' Stmt '}' {
+  : '{' BlockItems '}' {
     auto ast = new BlockAST();
-    ast->stmt = unique_ptr<BaseAST>($2);
+    ast->blockitems = unique_ptr<BaseAST>($2);
+    // for (int i = 0; i < ((BlockItemsAST*)($2))->blockitem.size(); i ++ )
+    //   ast->blockitems.emplace_back(static_cast<BlockItemsAST*>($2)->blockitem[i]);
+    // ast->blockitems = (BlockItemsAST*)($2)->blockitem;
+    $$ = ast;
+  }
+  | '{' '}' {
+    auto ast = new BlockAST();
+    $$ = ast;
+  }
+  ;
+
+BlockItems
+  : BlockItems BlockItem {
+    auto ast = (BlockItemsAST*)$1;
+    ast->blockitem.emplace_back(unique_ptr<BaseAST>($2));
+    $$ = ast;
+  }
+  | BlockItem {
+    auto ast = new BlockItemsAST();
+    ast->blockitem.emplace_back(unique_ptr<BaseAST>($1));
+    $$ = ast;
+  }
+  ;
+
+BlockItem
+  : Decl {
+    auto ast = new BlockItemAST();
+    ast->decl = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | Stmt {
+    auto ast = new BlockItemAST();
+    ast->stmt = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  ;
+
+Decl
+  : ConstDecl{
+    auto ast = new DeclAST();
+    ast->constdecl = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  ;
+
+ConstDecl
+  : CONST BType ConstDefs ';' {
+    auto ast = new ConstDeclAST();
+    ast->btype = *unique_ptr<string>($2);
+    ast->constdefs = unique_ptr<BaseAST>($3);
+    // for (int i = 0; i < ((ConstDefsAST*)($3))->constdefs.size(); i ++ )
+    //   ast->constdefs.emplace_back(((ConstDefsAST*)($3))->constdefs[i]);
+    // ast->constdefs = (ConstDefsAST*)($3)->constdefs;
+    // ast->constdefs.emplace_back(unique_ptr<BaseAST>($3));
+    $$ = ast;
+  }
+  ;
+
+ConstDefs
+  : ConstDefs ',' ConstDef {
+    ConstDefsAST* ast = (ConstDefsAST*)$1;
+    ast->constdefs.emplace_back(unique_ptr<BaseAST>($3));
+    $$ = ast;
+  }
+  | ConstDef {
+    auto ast = new ConstDefsAST();
+    ast->constdefs.emplace_back(unique_ptr<BaseAST>($1));
+    $$ = ast;
+  }
+  ;
+
+BType
+  : INT {
+    $$ = new string("int");
+  }
+  ;
+
+ConstDef
+  : IDENT '=' ConstInitVal {
+    auto ast = new ConstDefAST();
+    ast->ident = *unique_ptr<string>($1);
+    ast->constinitval = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  ;
+
+ConstInitVal
+  : ConstExp {
+    auto ast = new ConstInitValAST();
+    ast->constexp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  ;
+
+ConstExp
+  : Exp {
+    auto ast = new ConstExpAST();
+    ast->exp = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
   ;
@@ -121,10 +220,21 @@ PrimaryExp
     ast->exp = unique_ptr<BaseAST>($2);
     $$ = ast;
   }
+  | LVal {
+    auto ast = new PrimaryExpAST();
+    ast->lval = *unique_ptr<string>($1);
+    $$ = ast;
+  }
   | Number {
     auto ast = new PrimaryExpAST();
     ast->number = $1;
     $$ = ast;
+  }
+  ;
+
+LVal
+  : IDENT {
+    $$ = $1;
   }
   ;
 
