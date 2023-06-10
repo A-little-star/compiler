@@ -131,9 +131,18 @@ class BlockItemAST : public BaseAST {
 class DeclAST :public BaseAST {
     public:
         std::unique_ptr<BaseAST> constdecl;
+        std::unique_ptr<BaseAST> vardecl;
 
         std::string Dump() const override {
-            std::string res = constdecl->Dump();
+            std::string res;
+            if (!constdecl)
+            {
+                res = vardecl->Dump();
+            }
+            else if (!vardecl)
+            {
+                res = constdecl->Dump();
+            }
             return res;
         }
         int Val() const override {
@@ -201,6 +210,98 @@ class ConstInitValAST : public BaseAST {
         }
 };
 
+class VarDeclAST: public BaseAST {
+    public:
+        std::string btype;
+        std::unique_ptr<BaseAST> vardefs;
+
+        std::string Dump() const override {
+            std::string res;
+            res += vardefs->Dump();
+            return res;
+        }
+        int Val() const override {
+            return 0;
+        }
+};
+
+class VarDefsAST : public BaseAST {
+    public:
+        std::vector<std::unique_ptr<BaseAST>> vardefs;
+
+        std::string Dump() const override {
+            std::string res;
+            for (int i = 0; i < vardefs.size(); i ++ )
+                res += vardefs[i]->Dump();
+            return res;
+        }
+        int Val() const override {
+            return 0;
+        }
+};
+
+class VarDefAST : public BaseAST {
+    public:
+        std::string ident;
+        std::unique_ptr<BaseAST> initval;
+
+        std::string Dump() const override {
+            // initval->Dump();
+            std::string res;
+            if (initval)
+            {
+                std::string s = initval->Dump();
+                // res += std::to_string(initval->Val());
+                if (initval->exptype == NUM)
+                {
+                    res = "  @";
+                    res += ident;
+                    res += " = alloc i32\n  store ";
+                    res += std::to_string(initval->Val());
+                }
+                else if (initval->exptype == EXP)
+                {
+                    res += s;
+                    res += "  @";
+                    res += ident;
+                    res += " = alloc i32\n  store ";
+                    res += "%";
+                    res += std::to_string(val_id - 1);
+                }
+                res += ", @";
+                res += ident;
+                res += "\n";
+                symtable[ident] = {"i32", initval->Val(), VAR};
+            }
+            else 
+            {
+                res += "  @";
+                res += ident;
+                res += " = alloc i32\n";
+                symtable[ident] = {"i32", 0, VAR};
+            }
+            return res;
+        }
+        int Val() const override {
+            return 0;
+        }
+};
+
+class InitValAST : public BaseAST {
+    public:
+        std::unique_ptr<BaseAST> exp;
+
+        std::string Dump() const override {
+            std::string res;
+            res += exp->Dump();
+            exptype = exp->exptype;
+            return res;
+        }
+        int Val() const override {
+            return exp->Val();
+        }
+};
+
 class ConstExpAST : public BaseAST {
     public:
         std::unique_ptr<BaseAST> exp;
@@ -220,22 +321,48 @@ class StmtAST : public BaseAST {
     public:
         std::string ret;
         std::unique_ptr<BaseAST> exp;
+        std::string lval;
 
         std::string Dump() const override {
             std::string res;
             std::string s = exp->Dump();
 
-            if (exp->exptype == EXP)
+            if (lval == "")
             {
-                res += s;
-                res += "  ret";
-                res += " %";
-                res += std::to_string(val_id - 1);
+                if (exp->exptype == EXP)
+                {
+                    res += s;
+                    res += "  ret";
+                    res += " %";
+                    res += std::to_string(val_id - 1);
+                }
+                else
+                {
+                    res += "  ret ";
+                    res += s;
+                }
             }
-            else
+            else 
             {
-                res += "  ret ";
-                res += s;
+                if (exp->exptype == EXP)
+                {
+                    res += s;
+                    res += "  store %";
+                    res += std::to_string(val_id - 1);
+                    res += ", @";
+                    res += lval;
+                    res += "\n";
+                    symtable[lval].value = exp->Val();
+                }
+                else 
+                {
+                    res += "  store ";
+                    res += s;
+                    res += ", @";
+                    res += lval;
+                    res += "\n";
+                    symtable[lval].value = exp->Val();
+                }
             }
             return res;
         }
@@ -273,8 +400,21 @@ class PrimaryExpAST : public BaseAST {
             }
             else if (lval != "")
             {
-                exptype = NUM;
-                res += std::to_string(symtable[lval].value);
+                if (symtable[lval].kind == CON)
+                {
+                    exptype = NUM;
+                    res += std::to_string(symtable[lval].value);
+                }
+                else if (symtable[lval].kind == VAR)
+                {
+                    exptype = EXP;
+                    res += "  %";
+                    res += std::to_string(val_id);
+                    res += " = load @";
+                    res += lval;
+                    res += "\n";
+                    val_id ++;
+                }
             }
             else
             {
@@ -291,7 +431,9 @@ class PrimaryExpAST : public BaseAST {
             return res;
         }
         int Val() const override {
+            // printf("here is ok!\n");
             if (exp) return exp->Val();
+            else if (lval != "") return symtable[lval].value;
             else return number;
         }
 };

@@ -44,6 +44,7 @@ using namespace std;
 // 非终结符的类型定义
 %type <ast_val> FuncDef FuncType Block Stmt Exp PrimaryExp UnaryExp MulExp AddExp RelExp EqExp LAndExp LOrExp BlockItems BlockItem 
 %type <ast_val> Decl ConstDecl ConstDefs ConstDef ConstInitVal ConstExp
+%type <ast_val> VarDecl VarDefs VarDef InitVal
 %type <int_val> Number
 %type <str_val> UnaryOp LVal BType
 
@@ -138,6 +139,11 @@ Decl
     ast->constdecl = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
+  | VarDecl {
+    auto ast = new DeclAST();
+    ast->vardecl = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
   ;
 
 ConstDecl
@@ -197,11 +203,61 @@ ConstExp
   }
   ;
 
+VarDecl
+  : BType VarDefs ';' {
+    auto ast = new VarDeclAST();
+    ast->btype = *unique_ptr<string>($1);
+    ast->vardefs = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  ;
+
+VarDefs
+  : VarDefs ',' VarDef {
+    VarDefsAST* ast = (VarDefsAST*)($1);
+    ast->vardefs.emplace_back(unique_ptr<BaseAST>($3));
+    $$ = ast;
+  }
+  | VarDef {
+    auto ast = new VarDefsAST();
+    ast->vardefs.emplace_back(unique_ptr<BaseAST>($1));
+    $$ = ast;
+  }
+  ;
+
+VarDef
+  : IDENT {
+    auto ast = new VarDefAST();
+    ast->ident = *unique_ptr<string>($1);
+    $$ = ast;
+  }
+  | IDENT '=' InitVal {
+    auto ast = new VarDefAST();
+    ast->ident = *unique_ptr<string>($1);
+    ast->initval = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  ;
+
+InitVal
+  : Exp {
+    auto ast = new InitValAST();
+    ast->exp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  ;
+
 Stmt
   : RETURN Exp ';' {
     auto ast = new StmtAST();
     ast->ret = "return";
     ast->exp = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  | LVal '=' Exp ';' {
+    auto ast = new StmtAST();
+    ast->lval = *unique_ptr<string>($1);
+    ast->exp = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
   ;

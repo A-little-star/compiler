@@ -37,7 +37,7 @@ int main(int argc, const char *argv[]) {
   auto ret = yyparse(ast);
   assert(!ret);
 
-  printf("AST is built successfully!\n");
+  // printf("AST is built successfully!\n");
 
   // 输出解析得到的 AST, 其实就是个字符串
   string ast_str = ast->Dump();
@@ -66,20 +66,19 @@ int main(int argc, const char *argv[]) {
   koopa_delete_program(program);
 
   // 处理 raw program
-  string ir_str = Visit(raw);
-  const char *ir_str_ptr = ir_str.c_str();
   if (strcmp(mode, "-riscv") == 0)
   {
+    string ir_str = Visit(raw);
+    const char *ir_str_ptr = ir_str.c_str();
     cout << ir_str << endl;
     fstream file;
     file.open(output, ios::out);
     file.write(ir_str_ptr, (int)ir_str.size());
     file.close();
+    // 处理完成，释放raw program builder 占用的内存
+    // 注意， raw program 中所有的指针指向的内存均为 raw program builder 的内存
+    // 所以不要再 raw program 处理完毕之前释放 builder
+    koopa_delete_raw_program_builder(builder);
   }
-
-  // 处理完成，释放raw program builder 占用的内存
-  // 注意， raw program 中所有的指针指向的内存均为 raw program builder 的内存
-  // 所以不要再 raw program 处理完毕之前释放 builder
-  koopa_delete_raw_program_builder(builder);
   return 0;
 }
