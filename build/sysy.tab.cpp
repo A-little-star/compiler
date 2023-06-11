@@ -1336,7 +1336,7 @@ yyreduce:
   case 3:
 #line 74 "/root/compiler/src/sysy.y"
                                  {
-    auto ast = new FunDefAST();
+    auto ast = new FuncDefAST();
     ast->func_type = unique_ptr<BaseAST>((yyvsp[-4].ast_val));
     ast->ident = *unique_ptr<string>((yyvsp[-3].str_val));
     ast->block = unique_ptr<BaseAST>((yyvsp[0].ast_val));
