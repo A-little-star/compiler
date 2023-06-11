@@ -4,6 +4,10 @@
 #include <vector>
 typedef unsigned int u32;
 
+struct value;
+typedef struct value value;
+typedef value* value_ptr;
+
 enum slice_kind {
     RISK_UNKNOWN = 0,
     RISK_VALUE,
@@ -110,14 +114,14 @@ typedef struct {
 } inst_kind;
 
 // value 类型可是是一条指令，也可以是一个立即数
-typedef struct {
+struct value {
     // 该指令用到的操作数
     slice_ptr used;
     // 哪些指令用到该指令的返回值
     slice_ptr used_by;
     // 指令(操作数)的类型
     inst_kind kind;
-} value;
+};
 
 typedef value *value_ptr;
 
@@ -156,9 +160,9 @@ typedef struct {
     slice_ptr used_by;
     // Instructions in this basic block.
     slice_ptr insts;
-} block;
+} basic_block;
 
-typedef block *block_ptr;
+typedef basic_block *basic_block_ptr;
 
 
 

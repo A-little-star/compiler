@@ -5,8 +5,6 @@
 #include <vector>
 #include <unordered_map>
 #include "SymTable.cpp"
-#include "xc.hpp"
-#include "visitor.hpp"
 
 #define EXP_STACK_SIZE 100
 
@@ -21,8 +19,6 @@ class BaseAST {
         virtual ~BaseAST() = default;
 
         virtual void Dump() const = 0;
-        // virtual int Val() const = 0;
-        // virtual void accept(Visitor *) = 0;
 };
 
 class CompUnitAST : public BaseAST {
@@ -51,7 +47,7 @@ class FuncDefAST : public BaseAST {
         }
 };
 
-class FuncType : public BaseAST {
+class FuncTypeAST : public BaseAST {
     public:
         std::string type;
 
@@ -62,7 +58,7 @@ class FuncType : public BaseAST {
         }
 };
 
-class BlockType : public BaseAST {
+class BlockTypeAST : public BaseAST {
     public:
         std::unique_ptr<BaseAST> stmt;
 

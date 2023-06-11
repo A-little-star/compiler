@@ -5,8 +5,6 @@
 #include <string>
 #include <fstream>
 #include "AST.hpp"
-#include "koopa.h"
-#include "vkoopa.h"
 
 using namespace std;
 
