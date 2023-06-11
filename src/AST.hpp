@@ -3,7 +3,10 @@
 #include <iostream>
 #include <cstring>
 #include <vector>
-#include <SymTable.hpp>
+#include <unordered_map>
+#include "SymTable.cpp"
+#include "xc.hpp"
+// extern std::unordered_map<std::string, symval> symtable;
 
 #define EXP_STACK_SIZE 100
 
@@ -32,6 +35,7 @@ class CompUnitAST : public BaseAST {
         int Val() const override {
             return 0;
         }
+        void GenIR(prog_ptr program) const;
 };
 
 class FuncDefAST : public BaseAST {
@@ -54,6 +58,7 @@ class FuncDefAST : public BaseAST {
         int Val() const override {
             return 0;
         }
+        void GenIR(prog_ptr program) const;
 };
 
 class FuncTypeAST : public BaseAST {

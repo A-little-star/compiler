@@ -2,6 +2,6 @@
 #include <string>
 #include <map>
 #include <unordered_map>
-#include <SymTable.hpp>
+#include "SymTable.hpp"
 
 std::unordered_map<std::string, symval> symtable;
