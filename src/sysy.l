@@ -18,7 +18,6 @@ using namespace std;
 /* 空白符和注释 */
 WhiteSpace    [ \t\n\r]*
 LineComment   "//".*
-BlockComment  "/*".*"*/"
 
 /* 标识符 */
 Identifier    [a-zA-Z_][a-zA-Z0-9_]*
@@ -28,16 +27,13 @@ Decimal       [1-9][0-9]*
 Octal         0[0-7]*
 Hexadecimal   0[xX][0-9a-fA-F]+
 
-
 %%
 
 {WhiteSpace}    { /* 忽略, 不做任何操作 */ }
 {LineComment}   { /* 忽略, 不做任何操作 */ }
-{BlockComment}  { /* 忽略, 不做任何操作 */ }
 
 "int"           { return INT; }
 "return"        { return RETURN; }
-"const"         { return CONST; }
 
 {Identifier}    { yylval.str_val = new string(yytext); return IDENT; }
 
@@ -46,12 +42,5 @@ Hexadecimal   0[xX][0-9a-fA-F]+
 {Hexadecimal}   { yylval.int_val = strtol(yytext, nullptr, 0); return INT_CONST; }
 
 .               { return yytext[0]; }
-
-"<="            { yylval.str_val = new string(yytext); return LT; }
-">="            { yylval.str_val = new string(yytext); return GT; }
-"=="            { yylval.str_val = new string(yytext); return EQ; }
-"!="            { yylval.str_val = new string(yytext); return NEQ; }
-"&&"            { yylval.str_val = new string(yytext); return AND; }
-"||"            { yylval.str_val = new string(yytext); return OR; }
 
 %%

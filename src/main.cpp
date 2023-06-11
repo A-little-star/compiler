@@ -39,46 +39,17 @@ int main(int argc, const char *argv[]) {
 
   // printf("AST is built successfully!\n");
 
+  ast->Dump();
   // 输出解析得到的 AST, 其实就是个字符串
-  string ast_str = ast->Dump();
-
-
-
-  const char *ast_str_ptr = ast_str.c_str();
-  if (strcmp(mode, "-koopa") == 0)
-  {
-    cout << ast_str << endl;
-    fstream file;
-    file.open(output, ios::out);
-    file.write(ast_str_ptr, (int)ast_str.size());
-    file.close();
-  }
-
-  // 生成数据结构形式的IR
-  koopa_program_t program;
-  koopa_error_code_t rett = koopa_parse_from_string(ast_str_ptr, &program);
-  assert(rett == KOOPA_EC_SUCCESS);
-  // 创建一个 raw program builder, 用来构建 raw program
-  koopa_raw_program_builder_t builder = koopa_new_raw_program_builder();
-  // 将 Koopa IR 程序转换为 raw program
-  koopa_raw_program_t raw = koopa_build_raw_program(builder, program);
-  // 释放 Koopa IR 程序占用的内存
-  koopa_delete_program(program);
-
-  // 处理 raw program
-  if (strcmp(mode, "-riscv") == 0)
-  {
-    string ir_str = Visit(raw);
-    const char *ir_str_ptr = ir_str.c_str();
-    cout << ir_str << endl;
-    fstream file;
-    file.open(output, ios::out);
-    file.write(ir_str_ptr, (int)ir_str.size());
-    file.close();
-    // 处理完成，释放raw program builder 占用的内存
-    // 注意， raw program 中所有的指针指向的内存均为 raw program builder 的内存
-    // 所以不要再 raw program 处理完毕之前释放 builder
-    koopa_delete_raw_program_builder(builder);
-  }
+  // string ast_str = ast->Dump();
+  // const char *ast_str_ptr = ast_str.c_str();
+  // if (strcmp(mode, "-koopa") == 0)
+  // {
+  //   cout << ast_str << endl;
+  //   fstream file;
+  //   file.open(output, ios::out);
+  //   file.write(ast_str_ptr, (int)ast_str.size());
+  //   file.close();
+  // }
   return 0;
 }

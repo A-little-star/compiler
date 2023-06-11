@@ -25,59 +25,26 @@ typedef struct {
 
 typedef slice *slice_ptr;
 
-typedef struct {
-    // Global values.
-    slice values;
-    // Function definitions.
-    slice funcs;
-} program;
-
-typedef program *prog_ptr;
-
-typedef struct {
-    // Name of function.
-    char *name;
-    // Parameters.
-    slice params;
-    // Basic blocks, empty if is a functino declaration.
-    slice bbs;
-} function;
-
-typedef function *func_ptr;
-
-typedef struct {
-    // Name of basic block, null if no name.
-    char *name;
-    // Parameters of basic block, will be used in SSA optimistic.
-    slice params;
-    // Values that this basic block is used by.（暂时不知道有什么用）
-    slice used_by;
-    // Instructions in this basic block.
-    slice insts;
-} block;
-
-typedef block *block_ptr;
-
 enum inst_kind_tag {
-    INTEGER,
-    VARIABLE,
+    IR_INTEGER,
+    IR_VARIABLE,
     // 变量存储单元分配
-    ALLOC,
-    GLOBAL_ALLOC,
+    IR_ALLOC,
+    IR_GLOBAL_ALLOC,
     // 加载指令
-    LOAD,
+    IR_LOAD,
     // 存储指令
-    STORE,
+    IR_STORE,
     // 二进制运算
-    BINARY,
+    IR_BINARY,
     // 分支指令
-    BRANCH,
+    IR_BRANCH,
     // 跳转指令
-    JUMP,
+    IR_JUMP,
     // 函数调用
-    CALL,
+    IR_CALL,
     // 函数返回
-    RETURN,
+    IR_RETURN,
 };
 
 enum op_t {
@@ -145,13 +112,54 @@ typedef struct {
 // value 类型可是是一条指令，也可以是一个立即数
 typedef struct {
     // 该指令用到的操作数
-    slice used;
+    slice_ptr used;
     // 哪些指令用到该指令的返回值
-    slice used_by;
+    slice_ptr used_by;
     // 指令(操作数)的类型
     inst_kind kind;
 } value;
 
 typedef value *value_ptr;
+
+typedef struct {
+    // Global values.
+    slice_ptr values;
+    // Function definitions.
+    slice_ptr funcs;
+} program;
+
+typedef program *prog_ptr;
+
+typedef enum ret_val_kind {
+    RET_INT,
+} ret_val_kind;
+
+typedef struct {
+    // Type of function's return value.
+    ret_val_kind kind;
+    // Name of function.
+    char *name;
+    // Parameters.
+    slice_ptr params;
+    // Basic blocks, empty if is a functino declaration.
+    slice_ptr bbs;
+} function;
+
+typedef function *func_ptr;
+
+typedef struct {
+    // Name of basic block, null if no name.
+    char *name;
+    // Parameters of basic block, will be used in SSA optimistic.
+    slice_ptr params;
+    // Values that this basic block is used by.（暂时不知道有什么用）
+    slice_ptr used_by;
+    // Instructions in this basic block.
+    slice_ptr insts;
+} block;
+
+typedef block *block_ptr;
+
+
 
 #endif
