@@ -1,24 +1,14 @@
-#ifndef AST_H
-#define AST_H
+#ifndef AST_HPP
+#define AST_HPP
 #include <iostream>
-#include <cstring>
-#include <vector>
-#include <unordered_map>
-#include "SymTable.cpp"
-
-#define EXP_STACK_SIZE 100
-
-extern int val_id;
-
-enum ExpType {EXP, NUM};
-typedef enum ExpType ExpType;
-
+#include <memory>
+#include "visitor.hpp"
 class BaseAST {
     public:
-        mutable ExpType exptype;
         virtual ~BaseAST() = default;
 
         virtual void Dump() const = 0;
+        virtual void accept(Visitor *v) = 0;
 };
 
 class CompUnitAST : public BaseAST {
@@ -26,9 +16,11 @@ class CompUnitAST : public BaseAST {
         std::unique_ptr<BaseAST> func_def;
 
         void Dump() const override {
-            std::cout << "CompUnitAST { ";
             func_def->Dump();
-            std::cout << " }";
+        }
+
+        void accept(Visitor *v) override {
+            v->visit(this);
         }
 };
 
@@ -39,11 +31,13 @@ class FuncDefAST : public BaseAST {
         std::unique_ptr<BaseAST> block;
 
         void Dump() const override {
-            std::cout << "FuncDefAST { ";
+            std::cout << "fun @" << ident << "(): ";
             func_type->Dump();
-            std::cout << ", " << ident << ", ";
             block->Dump();
-            std::cout << " }";
+        }
+
+        void accept(Visitor *v) override {
+            v->visit(this);
         }
 };
 
@@ -52,20 +46,27 @@ class FuncTypeAST : public BaseAST {
         std::string type;
 
         void Dump() const override {
-            std::cout << "FuncTypeAST { ";
-            std::cout << type;
-            std::cout << " }";
+            if (type == "int")
+                std::cout << "i32" << ' ';
+        }
+
+        void accept(Visitor *v) override {
+            v->visit(this);
         }
 };
 
-class BlockTypeAST : public BaseAST {
+class BlockAST : public BaseAST {
     public:
         std::unique_ptr<BaseAST> stmt;
 
         void Dump() const override {
-            std::cout << "BlockAST { ";
+            std::cout << "{" << std::endl << "%entry:" << std::endl;
             stmt->Dump();
-            std::cout << " }";
+            std::cout << std::endl << "}" << std::endl;
+        }
+
+        void accept(Visitor *v) override {
+            v->visit(this);
         }
 };
 
@@ -75,7 +76,11 @@ class StmtAST : public BaseAST {
         int number;
 
         void Dump() const override {
-            std::cout << "StmtAST { " << "return" << number << std::endl;
+            std::cout << "  ret " << number;
+        }
+
+        void accept(Visitor *v) override {
+            v->visit(this);
         }
 };
 

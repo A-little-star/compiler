@@ -5,6 +5,8 @@
 #include <string>
 #include <fstream>
 #include "AST.hpp"
+#include "xc.hpp"
+#include "ast2ir.hpp"
 
 using namespace std;
 
@@ -17,6 +19,8 @@ extern FILE *yyin;
 extern int yyparse(unique_ptr<BaseAST> &ast);
 int val_id = 0;
 int max_id = 0;
+
+prog_ptr prog = NULL;
 
 int main(int argc, const char *argv[]) {
   // 解析命令行参数. 测试脚本/评测平台要求你的编译器能接收如下参数:
@@ -38,6 +42,10 @@ int main(int argc, const char *argv[]) {
   // printf("AST is built successfully!\n");
 
   ast->Dump();
+  auto v = new GenIR();
+  ast->accept(v);
+  irDS2Text(prog);
+  
   // 输出解析得到的 AST, 其实就是个字符串
   // string ast_str = ast->Dump();
   // const char *ast_str_ptr = ast_str.c_str();

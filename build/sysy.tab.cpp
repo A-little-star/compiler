@@ -76,7 +76,7 @@
 
 // 声明 lexer 函数和错误处理函数
 int yylex();
-void yyerror(std::unique_ptr<std::string> &ast, const char *s);
+void yyerror(std::unique_ptr<BaseAST> &ast, const char *s);
 
 using namespace std;
 
@@ -1349,7 +1349,7 @@ yyreduce:
 #line 85 "/root/compiler/src/sysy.y"
         {
     auto ast = new FuncTypeAST();
-    ast->type = *unique_ptr<string>(new string("int"));
+    ast->type = "int";
     (yyval.ast_val) = ast;
   }
 #line 1356 "/root/compiler/build/sysy.tab.cpp"
@@ -1368,9 +1368,9 @@ yyreduce:
   case 6:
 #line 101 "/root/compiler/src/sysy.y"
                       {
-    auto stmt = new StmtAST();
-    ast->ret = *unique_ptr<string>(new string("return"));
-    ast->number = %2;
+    auto ast = new StmtAST();
+    ast->ret = "return";
+    ast->number = (yyvsp[-1].int_val);
     (yyval.ast_val) = ast;
   }
 #line 1377 "/root/compiler/build/sysy.tab.cpp"
@@ -1380,12 +1380,13 @@ yyreduce:
 #line 110 "/root/compiler/src/sysy.y"
               {
     (yyval.int_val) = (yyvsp[0].int_val);
+    // $$ = new string(to_string($1));
   }
-#line 1385 "/root/compiler/build/sysy.tab.cpp"
+#line 1386 "/root/compiler/build/sysy.tab.cpp"
     break;
 
 
-#line 1389 "/root/compiler/build/sysy.tab.cpp"
+#line 1390 "/root/compiler/build/sysy.tab.cpp"
 
       default: break;
     }
@@ -1617,11 +1618,11 @@ yyreturn:
 #endif
   return yyresult;
 }
-#line 115 "/root/compiler/src/sysy.y"
+#line 116 "/root/compiler/src/sysy.y"
 
 
 // 定义错误处理函数, 其中第二个参数是错误信息
 // parser 如果发生错误 (例如输入的程序出现了语法错误), 就会调用这个函数
-void yyerror(unique_ptr<string> &ast, const char *s) {
+void yyerror(unique_ptr<BaseAST> &ast, const char *s) {
   cerr << "error: " << s << endl;
 }

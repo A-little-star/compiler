@@ -164,6 +164,6 @@ typedef struct {
 
 typedef basic_block *basic_block_ptr;
 
-
+std::string irDS2Text(prog_ptr prog);
 
 #endif
