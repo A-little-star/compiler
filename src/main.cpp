@@ -4,9 +4,9 @@
 #include <memory>
 #include <string>
 #include <fstream>
-#include "AST.hpp"
-#include "xc.hpp"
-#include "ast2ir.hpp"
+#include "./frontend/AST.hpp"
+#include "./midend/xc.hpp"
+#include "./midend/ast2ir.hpp"
 
 using namespace std;
 
@@ -39,12 +39,10 @@ int main(int argc, const char *argv[]) {
   auto ret = yyparse(ast);
   assert(!ret);
 
-  // printf("AST is built successfully!\n");
-
-  ast->Dump();
+  // ast->Dump();
   auto v = new GenIR();
   ast->accept(v);
-  irDS2Text(prog);
+  // irDS2Text(prog);
   
   // 输出解析得到的 AST, 其实就是个字符串
   // string ast_str = ast->Dump();
