@@ -13,7 +13,6 @@ enum slice_kind {
     RISK_VALUE,
     RISK_FUNCTION,
     RISK_BASIC_BLOCK,
-    RISK_INSTRUCTION,
 };
 
 // slice 表示一种列表类型，列表中可以装载任何类型的元素，如全局变量、函数定义等
@@ -142,7 +141,7 @@ typedef struct {
     // Type of function's return value.
     ret_val_kind kind;
     // Name of function.
-    char *name;
+    std::string name;
     // Parameters.
     slice_ptr params;
     // Basic blocks, empty if is a functino declaration.
@@ -164,6 +163,11 @@ typedef struct {
 
 typedef basic_block *basic_block_ptr;
 
-std::string irDS2Text(prog_ptr prog);
+void irDS2Text(const prog_ptr prog, std::ostream &os);
+void GenCode(const prog_ptr prog, std::ostream &os);
+void GenCode(const slice_ptr slice, std::ostream &os);
+void GenCode(const func_ptr func, std::ostream &os);
+void GenCode(const basic_block_ptr bb, std::ostream &os);
+void GenCode(const value_ptr val, std::ostream &os);
 
 #endif

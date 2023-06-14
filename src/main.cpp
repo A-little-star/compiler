@@ -42,7 +42,9 @@ int main(int argc, const char *argv[]) {
   // ast->Dump();
   auto v = new GenIR();
   ast->accept(v);
-  // irDS2Text(prog);
+
+  
+  irDS2Text(prog, std::cout);
   
   // 输出解析得到的 AST, 其实就是个字符串
   // string ast_str = ast->Dump();

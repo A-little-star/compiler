@@ -30,6 +30,7 @@ class GenIR : public Visitor {
         func->params = new slice;
         func->params->len = 0;
         
+        func->name = FuncDef->ident;
         // 递归处理
         ret_val_kind *ret_type = (ret_val_kind*)FuncDef->func_type->accept(this);
         func->kind = *ret_type;
@@ -54,13 +55,14 @@ class GenIR : public Visitor {
         bb->params->len = 0;
         bb->insts = new slice;
         bb->insts->len = 0;
-        
+        // helper 指针指向当前所在的基本块
+        helper = (void*)bb;
         // 访问基本块下的指令
         value_ptr val = (value_ptr)Block->stmt->accept(this);
         // 将该指令添加到对应的基本块中
-        bb->insts->buffer.push_back(val);
-        bb->insts->len ++;
-        bb->insts->kind = RISK_INSTRUCTION;
+        // bb->insts->buffer.push_back(val);
+        // bb->insts->len ++;
+        // bb->insts->kind = RISK_VALUE;
         return bb;
     }
     void *visit(StmtAST *Stmt) {
@@ -80,6 +82,11 @@ class GenIR : public Visitor {
 
         value_ptr val_ret = (value_ptr)Stmt->exp->accept(this);
         val->kind.data.ret.value = val_ret;
+        // 将该指令添加到当前基本块中
+        basic_block_ptr bb_cur = (basic_block_ptr)helper;
+        bb_cur->insts->buffer.push_back(val);
+        bb_cur->insts->len ++;
+        bb_cur->insts->kind = RISK_VALUE;
         
         // value_ptr r = val->kind.data.ret.value;
         // r->kind.tag = IR_INTEGER;
@@ -113,11 +120,16 @@ class GenIR : public Visitor {
         }
     }
     void *visit(UnaryExpAST *UnaryExp) {
-        if (UnaryExp->type == UnaryExpAST::NAN || UnaryExp->unaryop == "+") {
+        if (UnaryExp->type == UnaryExpAST::NAN) {
             value_ptr val = (value_ptr)UnaryExp->primaryexp->accept(this);
             return val;
         }
-        else if (UnaryExp->type == UnaryExpAST::EXP && UnaryExp->unaryop != "+") {
+        else if (UnaryExp->type == UnaryExpAST::EXP) {
+            if (UnaryExp->unaryop == "+") {
+                value_ptr val = (value_ptr)UnaryExp->unaryexp->accept(this);
+                return val;
+            }
+
             value_ptr val = new value;
             val->used = new slice;
             val->used->len = 0;
@@ -140,7 +152,16 @@ class GenIR : public Visitor {
                 val->kind.data.binary.lhs->kind.data.integer.value = 0;
                 val->kind.data.binary.rhs = (value_ptr)UnaryExp->unaryexp->accept(this);
             }
+            // 将该指令添加到当前的基本块中
+            basic_block_ptr bb_cur = (basic_block_ptr)helper;
+            bb_cur->insts->buffer.push_back(val);
+            bb_cur->insts->len ++;
+            bb_cur->insts->kind = RISK_VALUE;
             return val;
+        }
+        else {
+            printf("There is a exception in visit of UnaryExp!\n");
+            return NULL;
         }
     }
     // void *visit(UnaryOpAST *UnaryOp) {

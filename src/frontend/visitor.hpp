@@ -15,6 +15,7 @@ class UnaryOpAST;
 
 class Visitor {
     public:
+        void* helper;
         virtual void *visit(CompUnitAST *) { return NULL; }
         virtual void *visit(FuncDefAST *) { return NULL; }
         virtual void *visit(FuncTypeAST *) { return NULL; }
