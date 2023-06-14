@@ -1,6 +1,6 @@
 ## AST
 
-CompUnit  ::= FuncDef;
+CompUnit  ::= FuncDef; \\
 
 FuncDef   ::= FuncType IDENT "(" ")" Block;
 FuncType  ::= "int";

@@ -8,29 +8,8 @@ static int val_id = 0;
 std::unordered_map<value_ptr, int> val_map;
 
 void irDS2Text(const prog_ptr prog, std::ostream &os) {
-    // for (int i = 0; i < 1 && i < prog->funcs->len; i ++ ) {
-    //     assert(prog->funcs->kind == RISK_FUNCTION);
-    //     func_ptr func = (func_ptr)prog->funcs->buffer[i];
-    //     printf("fun @main(): i32 {\n");
-    //     for (int j = 0; j < 1 && j < func->bbs->len; j ++ ) {
-    //         assert(func->bbs->kind == RISK_BASIC_BLOCK);
-    //         basic_block_ptr bb = (basic_block_ptr)func->bbs->buffer[i];
-    //         printf("%%entry:\n");
-    //         for (int k = 0; k < 1 && k < bb->insts->len; k ++ ) {
-    //             assert(bb->insts->kind == RISK_INSTRUCTION);
-    //             value_ptr value = (value_ptr)bb->insts->buffer[i];
-    //             assert(value->kind.tag == IR_RETURN);
-    //             value_ptr ret_value = value->kind.data.ret.value;
-    //             assert(ret_value->kind.tag == IR_INTEGER);
-    //             int int_val = ret_value->kind.data.integer.value;
-    //             printf("  ret %d\n", int_val);
-    //         }
-    //     }
-    //     printf("}\n");
-    // }
-    // return "";
+    printf("The generation of IR code starts now.\n");
     GenCode(prog, os);
-
 }
 
 void GenCode(const prog_ptr prog, std::ostream &os) {
@@ -53,16 +32,14 @@ void GenCode(const slice_ptr slice, std::ostream &os) {
                 GenCode((value_ptr)ptr, os);
                 break;
             default:
-            {
-                // std::cout << slice->kind << std::endl;
                 assert(false);
-            }
         }
     }
 }
 
 void GenCode(const func_ptr func, std::ostream &os) {
     os << "fun @" << func->name << "(): i32 {\n";
+    // printf("Here is OK!\n");
     GenCode(func->bbs, os);
     os << "}\n";
 }
@@ -109,7 +86,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
             }
             // 生成操作符的字符串
             switch (kind.data.binary.op) {
-                case NOT_EQ : op = "neq"; break;
+                case NOT_EQ : op = "ne"; break;
                 case EQ : op = "eq"; break;
                 case GT : op = "gt"; break;
                 case LT : op = "lt"; break;

@@ -38,12 +38,12 @@ using namespace std;
 // lexer 返回的所有 token 种类的声明
 // 注意 IDENT 和 INT_CONST 会返回 token 的值, 分别对应 str_val 和 int_val
 %token INT RETURN
-%token <str_val> IDENT
+%token <str_val> IDENT LT GT EQ NEQ AND OR
 %token <int_val> INT_CONST
 
 // 非终结符的类型定义
-%type <ast_val> FuncDef FuncType Block Stmt Exp PrimaryExp UnaryExp
-%type <str_val> UnaryOp
+%type <ast_val> FuncDef FuncType Block Stmt Exp PrimaryExp UnaryExp MulExp AddExp RelExp EqExp LAndExp LOrExp
+%type <str_val> UnaryOp RelOp EqOp LAndOp LOrOp
 %type <int_val> Number
 
 %%
@@ -108,9 +108,9 @@ Stmt
   ;
 
 Exp
-  : UnaryExp {
+  : LOrExp {
     auto ast = new ExpAST();
-    ast->unaryexp = unique_ptr<BaseAST>($1);
+    ast->lorexp = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
   ;
@@ -152,11 +152,157 @@ UnaryOp
   | '!' { $$ = new string("!"); }
   ;
 
+MulExp
+  : UnaryExp {
+    auto ast = new MulExpAST();
+    ast->type = MulExpAST::NAN;
+    ast->unaryexp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | MulExp '*' UnaryExp {
+    auto ast = new MulExpAST();
+    ast->type = MulExpAST::EXP;
+    ast->mulexp = unique_ptr<BaseAST>($1);
+    ast->unaryexp = unique_ptr<BaseAST>($3);
+    ast->mulop = *unique_ptr<string>(new string("*"));
+    $$ = ast;
+  }
+  | MulExp '/' UnaryExp {
+    auto ast = new MulExpAST();
+    ast->type = MulExpAST::EXP;
+    ast->mulexp = unique_ptr<BaseAST>($1);
+    ast->unaryexp = unique_ptr<BaseAST>($3);
+    ast->mulop = *unique_ptr<string>(new string("/"));
+    $$ = ast;
+  }
+  | MulExp '%' UnaryExp {
+    auto ast = new MulExpAST();
+    ast->type = MulExpAST::EXP;
+    ast->mulexp = unique_ptr<BaseAST>($1);
+    ast->unaryexp = unique_ptr<BaseAST>($3);
+    ast->mulop = *unique_ptr<string>(new string("%"));
+    $$ = ast;
+  }
+  ;
+
+AddExp
+  : MulExp {
+    auto ast = new AddExpAST();
+    ast->type = AddExpAST::NAN;
+    ast->mulexp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | AddExp '+' MulExp {
+    auto ast = new AddExpAST();
+    ast->type = AddExpAST::EXP;
+    ast->addexp = unique_ptr<BaseAST>($1);
+    ast->mulexp = unique_ptr<BaseAST>($3);
+    ast->addop = *unique_ptr<string>(new string("+"));
+    $$ = ast;
+  }
+  | AddExp '-' MulExp {
+    auto ast = new AddExpAST();
+    ast->type = AddExpAST::EXP;
+    ast->addexp = unique_ptr<BaseAST>($1);
+    ast->mulexp = unique_ptr<BaseAST>($3);
+    ast->addop = *unique_ptr<string>(new string("-"));
+    $$ = ast;
+  }
+  ;
+
 Number
   : INT_CONST {
     $$ = $1;
     // $$ = new string(to_string($1));
   }
+  ;
+
+RelExp
+  : AddExp {
+    auto ast = new RelExpAST();
+    ast->type = RelExpAST::NAN;
+    ast->addexp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | RelExp RelOp AddExp {
+    auto ast = new RelExpAST();
+    ast->type = RelExpAST::EXP;
+    ast->relexp = unique_ptr<BaseAST>($1);
+    ast->relop = *unique_ptr<string>($2);
+    ast->addexp = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  ;
+
+RelOp
+  : '<' { $$ = new string("<"); }
+  | '>' { $$ = new string(">"); }
+  | LT { $$ = new string("<="); }
+  | GT { $$ = new string(">="); }
+  ;
+
+EqExp
+  : RelExp {
+    auto ast = new EqExpAST();
+    ast->type = EqExpAST::NAN;
+    ast->relexp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | EqExp EqOp RelExp {
+    auto ast = new EqExpAST();
+    ast->type = EqExpAST::EXP;
+    ast->eqexp = unique_ptr<BaseAST>($1);
+    ast->eqop = *unique_ptr<string>($2);
+    ast->relexp = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  ;
+
+EqOp
+  : EQ { $$ = new string("=="); }
+  | NEQ { $$ = new string("!="); }
+  ;
+
+LAndExp
+  : EqExp {
+    auto ast = new LAndExpAST();
+    ast->type = LAndExpAST::NAN;
+    ast->eqexp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | LAndExp LAndOp EqExp {
+    auto ast = new LAndExpAST();
+    ast->type = LAndExpAST::EXP;
+    ast->landexp = unique_ptr<BaseAST>($1);
+    ast->landop = *unique_ptr<string>($2);
+    ast->eqexp = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  ;
+
+LAndOp
+  : AND { $$ = new string("&&"); }
+  ;
+
+LOrExp
+  : LAndExp {
+    auto ast = new LOrExpAST();
+    ast->type = LOrExpAST::NAN;
+    ast->landexp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | LOrExp LOrOp LAndExp {
+    auto ast = new LOrExpAST();
+    ast->type = LOrExpAST::EXP;
+    ast->lorexp = unique_ptr<BaseAST>($1);
+    ast->lorop = *unique_ptr<string>($2);
+    ast->landexp = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  ;
+
+LOrOp
+  : OR { $$ = new string("||"); }
   ;
 
 %%
