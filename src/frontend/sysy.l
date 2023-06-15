@@ -34,6 +34,7 @@ Hexadecimal   0[xX][0-9a-fA-F]+
 
 "int"           { return INT; }
 "return"        { return RETURN; }
+"const"         { return CONST; }
 
 {Identifier}    { yylval.str_val = new string(yytext); return IDENT; }
 
@@ -49,5 +50,7 @@ Hexadecimal   0[xX][0-9a-fA-F]+
 "!="            { yylval.str_val = new string(yytext); return NEQ; }
 "&&"            { yylval.str_val = new string(yytext); return AND; }
 "||"            { yylval.str_val = new string(yytext); return OR; }
+
+
 
 %%

@@ -1,14 +1,17 @@
 #ifndef AST_HPP
 #define AST_HPP
 #include <iostream>
+#include <vector>
 #include <memory>
 #include "visitor.hpp"
+#include "SymTable.hpp"
 class BaseAST {
     public:
         virtual ~BaseAST() = default;
 
         virtual void Dump() const = 0;
         virtual void *accept(Visitor *v) = 0;
+        virtual int get_value() { return 0; }
 };
 
 class CompUnitAST : public BaseAST {
@@ -60,16 +63,130 @@ class FuncTypeAST : public BaseAST {
 
 class BlockAST : public BaseAST {
     public:
-        std::unique_ptr<BaseAST> stmt;
+        std::unique_ptr<BaseAST> blockitems;
 
         void Dump() const override {
             std::cout << "Block {\n";
-            stmt->Dump();
+            blockitems->Dump();
             std::cout << "}\n";
         }
 
         void *accept(Visitor *v) override {
             return v->visit(this);
+        }
+};
+
+class BlockItemsAST : public BaseAST {
+    public:
+        std::vector<std::unique_ptr<BaseAST>> blockitems;
+
+        void Dump() const override {
+            for (size_t i = 0; i < blockitems.size(); i ++ ) {
+                blockitems[i]->Dump();
+            }
+        }
+
+        void *accept(Visitor *v) override {
+            return v->visit(this);
+        }
+};
+
+class BlockItemAST : public BaseAST {
+    public:
+        enum type {DECL, STMT} type;
+        std::unique_ptr<BaseAST> decl;
+        std::unique_ptr<BaseAST> stmt;
+
+        void Dump() const override {
+            std::cout << "BlockItem: {\n";
+            if (type == DECL) decl->Dump();
+            else stmt->Dump();
+            std::cout << "}\n";
+        }
+
+        void *accept(Visitor *v) override {
+            return v->visit(this);
+        }
+};
+
+class DeclAST : public BaseAST {
+    public:
+        std::unique_ptr<BaseAST> constdecl;
+
+        void Dump() const override {
+            std::cout << "DeclAST: {\n";
+            constdecl->Dump();
+            std::cout << "}\n";
+        }
+
+        void *accept(Visitor *v) override {
+            return v->visit(this);
+        }
+};
+
+class ConstDeclAST : public BaseAST {
+    public:
+        std::string btype;
+        std::unique_ptr<BaseAST> constdefs;
+
+        void Dump() const override {
+            std::cout << "ConstDeclAST: {\n";
+            constdefs->Dump();
+            std::cout << "}\n";
+        }
+
+        void *accept(Visitor *v) override {
+            return v->visit(this);
+        }
+};
+
+class ConstDefsAST : public BaseAST {
+    public:
+        std::vector<std::unique_ptr<BaseAST>> constdefs;
+
+        void Dump() const override {
+            for (size_t i = 0; i < constdefs.size(); i ++ ) {
+                constdefs[i]->Dump();
+            }
+        }
+
+        void *accept(Visitor *v) override {
+            return v->visit(this);
+        }
+};
+
+class ConstDefAST : public BaseAST {
+    public:
+        std::string ident;
+        std::unique_ptr<BaseAST> constinitval;
+
+        void Dump() const override {
+            std::cout << "ConstDefAST: {\n";
+            constinitval->Dump();
+            std::cout << "}\n";
+        }
+
+        void *accept(Visitor *v) override {
+            return v->visit(this);
+        }
+};
+
+class ConstInitValAST : public BaseAST {
+    public:
+        std::unique_ptr<BaseAST> constexp;
+
+        void Dump() const override {
+            std::cout << "ConstInitValAST: {\n";
+            constexp->Dump();
+            std::cout << "}\n";
+        }
+
+        void *accept(Visitor *v) override {
+            return v->visit(this);
+        }
+
+        int get_value() override {
+            return constexp->get_value();
         }
 };
 
@@ -90,6 +207,25 @@ class StmtAST : public BaseAST {
         }
 };
 
+class ConstExpAST : public BaseAST {
+    public:
+        std::unique_ptr<BaseAST> exp;
+
+        void Dump() const override {
+            std::cout << "ConstExpAST: {\n";
+            exp->Dump();
+            std::cout << "}\n";
+        }
+
+        void *accept(Visitor *v) override {
+            return v->visit(this);
+        }
+
+        int get_value() override {
+            return exp->get_value();
+        }
+};
+
 class ExpAST : public BaseAST {
     public:
         std::unique_ptr<BaseAST> lorexp;
@@ -102,12 +238,17 @@ class ExpAST : public BaseAST {
         void *accept(Visitor *v) override {
             return v->visit(this);
         }
+
+        int get_value() override {
+            return lorexp->get_value();
+        }
 };
 
 class PrimaryExpAST : public BaseAST {
     public:
-        enum type {EXP, NUM} type;
+        enum type {EXP, NUM, LVAL} type;
         std::unique_ptr<BaseAST> exp;
+        std::string lval;
         int number;
 
         void Dump() const override {
@@ -122,6 +263,12 @@ class PrimaryExpAST : public BaseAST {
         }
         void *accept(Visitor *v) override {
             return v->visit(this);
+        }
+
+        int get_value() override {
+            if (type == EXP) return exp->get_value();
+            else if (type == LVAL) return symtable[lval].value;
+            else return number;
         }
 };
 
@@ -143,6 +290,19 @@ class UnaryExpAST : public BaseAST {
         }
         void *accept(Visitor *v) override {
             return v->visit(this);
+        }
+
+        int get_value() override {
+            if (type == NAN) return primaryexp->get_value();
+            else {
+                if (unaryop == "+") return unaryexp->get_value();
+                else if (unaryop == "-") return -unaryexp->get_value();
+                else if (unaryop == "!") return !unaryexp->get_value();
+                else {
+                    printf("There is a exception in UnaryExpAST!\n");
+                    return -1;
+                }
+            }
         }
 };
 
@@ -166,6 +326,17 @@ class MulExpAST : public BaseAST {
         void *accept(Visitor *v) override {
             return v->visit(this);
         }
+
+        int get_value() override {
+            if (type == NAN) return unaryexp->get_value();
+            else if (mulop == "*") return mulexp->get_value() * unaryexp->get_value();
+            else if (mulop == "/") return mulexp->get_value() / unaryexp->get_value();
+            else if (mulop == "%") return mulexp->get_value() % unaryexp->get_value();
+            else {
+                printf("There is a exception in MulExpAST!\n");
+                return -1;
+            }
+        }
 };
 
 class AddExpAST : public BaseAST {
@@ -187,6 +358,17 @@ class AddExpAST : public BaseAST {
         }
         void *accept(Visitor *v) override {
             return v->visit(this);
+        }
+
+        int get_value() override {
+            if (type == NAN) return mulexp->get_value();
+            else if (addop == "+") return addexp->get_value() + mulexp->get_value();
+            else if (addop == "-") return addexp->get_value() - mulexp->get_value();
+            else 
+            {
+                printf("There is a exception in AddExpAST!\n");
+                return -1;
+            }
         }
 };
 
@@ -210,6 +392,19 @@ class RelExpAST : public BaseAST {
         void *accept(Visitor *v) override {
             return v->visit(this);
         }
+
+        int get_value() override {
+            if (type == NAN) return addexp->get_value();
+            else if (relop == "<") return relexp->get_value() < addexp->get_value();
+            else if (relop == ">") return relexp->get_value() > addexp->get_value();
+            else if (relop == "<=") return relexp->get_value() <= addexp->get_value();
+            else if (relop == ">=") return relexp->get_value() >= addexp->get_value();
+            else 
+            {
+                printf("There is a exception in RelExpAST!\n");
+                return -1;
+            }
+        }
 };
 
 class EqExpAST : public BaseAST {
@@ -231,6 +426,17 @@ class EqExpAST : public BaseAST {
         }
         void *accept(Visitor *v) override {
             return v->visit(this);
+        }
+
+        int get_value() override {
+            if (type == NAN) return relexp->get_value();
+            else if (eqop == "==") return eqexp->get_value() == relexp->get_value();
+            else if (eqop == "!=") return eqexp->get_value() != relexp->get_value();
+            else 
+            {
+                printf("There is a exception in EqExpAST!\n");
+                return -1;
+            }
         }
 };
 
@@ -254,6 +460,11 @@ class LAndExpAST : public BaseAST {
         void *accept(Visitor *v) override {
             return v->visit(this);
         }
+
+        int get_value() override {
+            if (type == NAN) return eqexp->get_value();
+            else return landexp->get_value() && eqexp->get_value();
+        }
 };
 
 class LOrExpAST : public BaseAST {
@@ -275,6 +486,11 @@ class LOrExpAST : public BaseAST {
         }
         void *accept(Visitor *v) override {
             return v->visit(this);
+        }
+
+        int get_value() override {
+            if (type == NAN) return landexp->get_value();
+            else return lorexp->get_value() || landexp->get_value();
         }
 };
 

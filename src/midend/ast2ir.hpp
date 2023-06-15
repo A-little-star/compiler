@@ -2,6 +2,7 @@
 #include <cstring>
 #include "xc.hpp"
 #include "../frontend/AST.hpp"
+#include "SymTable.hpp"
 // #include "visitor.hpp"
 
 class Visitor;
@@ -61,8 +62,51 @@ class GenIR : public Visitor {
         // helper 指针指向当前所在的基本块
         helper = (void*)bb;
         // 访问基本块下的指令，指令将在处理过程中逐渐push到bb的buffer中
-        Block->stmt->accept(this);
+        Block->blockitems->accept(this);
         return bb;
+    }
+    void *visit(BlockItemsAST *BlockItems) {
+        for (size_t i = 0; i < BlockItems->blockitems.size(); i ++ ) {
+            BlockItems->blockitems[i]->accept(this);
+        }
+        return NULL;
+    }
+    void *visit(BlockItemAST *BlockItem) {
+        if (BlockItem->type == BlockItemAST::DECL) {
+            BlockItem->decl->accept(this);
+        }
+        else if (BlockItem->type == BlockItemAST::STMT) {
+            BlockItem->stmt->accept(this);
+        }
+        else {
+            printf("There is a exception in visit of BlockItem!\n");
+            assert(false);
+        }
+        return NULL;
+    }
+    void *visit(DeclAST *Decl) {
+        Decl->constdecl->accept(this);
+        return NULL;
+    }
+    void *visit(ConstDeclAST *ConstDecl) {
+        if (ConstDecl->btype == "int") cur_type = Visitor::INT;
+        else {
+            printf("There is an exception in visit of ConstDelAST!\n");
+            assert(false);
+        }
+        ConstDecl->constdefs->accept(this);
+        return NULL;
+    }
+    void *visit(ConstDefsAST *ConstDefs) {
+        for (size_t i = 0; i < ConstDefs->constdefs.size(); i ++ ) {
+            ConstDefs->constdefs[i]->accept(this);
+        }
+        return NULL;
+    }
+    void *visit(ConstDefAST *ConstDef) {
+        int val = ConstDef->constinitval->get_value();
+        symtable[ConstDef->ident] = {"i32", val, CON};
+        return NULL;
     }
     void *visit(StmtAST *Stmt) {
         // 创建一个新的value类型（这里表示指令），并为其成员变量分配空间
@@ -98,6 +142,12 @@ class GenIR : public Visitor {
         }
         else if (PrimaryExp->type == PrimaryExpAST::EXP) {
             value_ptr val = (value_ptr)PrimaryExp->exp->accept(this);
+            return val;
+        }
+        else if (PrimaryExp->type == PrimaryExpAST::LVAL) {
+            value_ptr val = new value;
+            val->kind.tag = IR_INTEGER;
+            val->kind.data.integer.value = symtable[PrimaryExp->lval].value;
             return val;
         }
         else {
