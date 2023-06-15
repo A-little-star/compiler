@@ -164,10 +164,7 @@ typedef struct {
 typedef basic_block *basic_block_ptr;
 
 void irDS2Text(const prog_ptr prog, std::ostream &os);
-void GenCode(const prog_ptr prog, std::ostream &os);
-void GenCode(const slice_ptr slice, std::ostream &os);
-void GenCode(const func_ptr func, std::ostream &os);
-void GenCode(const basic_block_ptr bb, std::ostream &os);
-void GenCode(const value_ptr val, std::ostream &os);
+
+void FreeMem(prog_ptr prog);
 
 #endif

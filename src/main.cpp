@@ -67,6 +67,9 @@ int main(int argc, const char *argv[]) {
     }
     else
       cout << "main.cpp: Unable to create the input file." << endl;
+
+    // 释放IR所占用的内存
+    FreeMem(prog);
   }
   
   // 输出解析得到的 AST, 其实就是个字符串

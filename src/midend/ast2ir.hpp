@@ -55,6 +55,8 @@ class GenIR : public Visitor {
     void *visit(BlockAST *Block) {
         // 创建一个新的Basic block，并为其成员变量分配空间；
         basic_block_ptr bb = new basic_block;
+        bb->used_by = new slice;
+        bb->used_by->len = 0;
         bb->params = new slice;
         bb->params->len = 0;
         bb->insts = new slice;

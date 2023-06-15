@@ -4,6 +4,19 @@
 #include <assert.h>
 #include "xc.hpp"
 
+// 函数声明
+// IR生成部分
+void GenCode(const prog_ptr prog, std::ostream &os);
+void GenCode(const slice_ptr slice, std::ostream &os);
+void GenCode(const func_ptr func, std::ostream &os);
+void GenCode(const basic_block_ptr bb, std::ostream &os);
+void GenCode(const value_ptr val, std::ostream &os);
+// 释放内存空间部分
+void FreeMem(slice_ptr slice);
+void FreeMem(func_ptr func);
+void FreeMem(basic_block_ptr bb);
+void FreeMem(value_ptr val);
+
 static int val_id = 0;
 std::unordered_map<value_ptr, int> val_map;
 
@@ -110,4 +123,72 @@ void GenCode(const value_ptr val, std::ostream &os) {
             break;
         }
     }
+}
+
+
+void FreeMem(prog_ptr prog) {
+    FreeMem(prog->values);
+    FreeMem(prog->funcs);
+    delete prog;
+    prog = NULL;
+}
+
+void FreeMem(slice_ptr slice) {
+    for (size_t i = 0; i < slice->len; i ++ ) {
+        auto ptr = slice->buffer[i];
+        switch (slice->kind) {
+            case RISK_FUNCTION:
+                FreeMem((func_ptr)ptr);
+                break;
+            case RISK_BASIC_BLOCK:
+                FreeMem((basic_block_ptr)ptr);
+                break;
+            case RISK_VALUE:
+                FreeMem((value_ptr)ptr);
+                break;
+            default:
+                assert(false);
+        }
+    }
+    delete slice;
+    slice = NULL;
+}
+
+void FreeMem(func_ptr func) {
+    FreeMem(func->params);
+    FreeMem(func->bbs);
+    delete func;
+    func = NULL;
+}
+
+void FreeMem(basic_block_ptr bb) {
+    FreeMem(bb->used_by);
+    FreeMem(bb->params);
+    FreeMem(bb->insts);
+    delete bb;
+    bb = NULL;
+}
+
+void FreeMem(value_ptr val) {
+    auto &kind = val->kind;
+    switch (kind.tag) {
+        case IR_RETURN:
+        {
+            if (kind.data.ret.value->kind.tag == IR_INTEGER)
+                FreeMem(kind.data.ret.value);
+            break;
+        }
+        case IR_BINARY:
+        {
+            if (kind.data.binary.lhs->kind.tag == IR_INTEGER)
+                FreeMem(kind.data.binary.lhs);
+            if (kind.data.binary.rhs->kind.tag == IR_INTEGER)
+                FreeMem(kind.data.binary.rhs);
+            break;
+        }
+        default:
+            break;
+    }
+    delete val;
+    val = NULL;
 }

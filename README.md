@@ -7,6 +7,7 @@ Koopa IR是参考北京大学编译实践在线文档（https://pku-minic.github
 
 ## 目前所支持的文法规则
 
+```
 CompUnit    ::= FuncDef;\
 
 FuncDef     ::= FuncType IDENT "(" ")" Block;\
@@ -26,6 +27,7 @@ RelExp      ::= AddExp | RelExp ("<" | ">" | "<=" | ">=") AddExp;\
 EqExp       ::= RelExp | EqExp ("==" | "!=") RelExp;\
 LAndExp     ::= EqExp | LAndExp "&&" EqExp;\
 LOrExp      ::= LAndExp | LOrExp "||" LAndExp;\
+```
 
 ## IR
 生成抽象语法树AST之后，编译器会遍历AST，生成数据结构形式的Koopa IR，生成的过程写在midend/ast2ir.cpp中。
