@@ -820,32 +820,32 @@ YY_RULE_SETUP
 case 11:
 YY_RULE_SETUP
 #line 47 "/root/compiler/src/frontend/sysy.l"
-{ yylval.str_val = new string(yytext); return LT; }
+{ yylval.str_val = new string(yytext); return LTOP; }
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
 #line 48 "/root/compiler/src/frontend/sysy.l"
-{ yylval.str_val = new string(yytext); return GT; }
+{ yylval.str_val = new string(yytext); return GTOP; }
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
 #line 49 "/root/compiler/src/frontend/sysy.l"
-{ yylval.str_val = new string(yytext); return EQ; }
+{ yylval.str_val = new string(yytext); return EQOP; }
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
 #line 50 "/root/compiler/src/frontend/sysy.l"
-{ yylval.str_val = new string(yytext); return NEQ; }
+{ yylval.str_val = new string(yytext); return NEQOP; }
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
 #line 51 "/root/compiler/src/frontend/sysy.l"
-{ yylval.str_val = new string(yytext); return AND; }
+{ yylval.str_val = new string(yytext); return ANDOP; }
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
 #line 52 "/root/compiler/src/frontend/sysy.l"
-{ yylval.str_val = new string(yytext); return OR; }
+{ yylval.str_val = new string(yytext); return OROP; }
 	YY_BREAK
 case 17:
 YY_RULE_SETUP

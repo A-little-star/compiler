@@ -4,6 +4,9 @@
 #include <assert.h>
 #include "../midend/xc.hpp"
 
+extern std::unordered_map<value_ptr, int> off_map;
+static int offset = 0;
+
 std::string regs[31] = {
     "t0",
     "t1",
@@ -63,6 +66,8 @@ void GenRisc(const slice_ptr slice, std::ostream &os) {
 
 void GenRisc(const func_ptr func, std::ostream &os) {
     os << "  .globl main\nmain:\n";
+    offset = CalStackMem(func);
+    os << "  addi sp, sp, " << std::to_string(-offset) << std::endl;
     GenRisc(func->bbs, os);
 }
 
@@ -73,17 +78,44 @@ void GenRisc(const basic_block_ptr bb, std::ostream &os) {
 void GenRisc(const value_ptr val, std::ostream &os) {
     const auto &kind = val->kind;
     switch (kind.tag) {
+        case IR_ALLOC:
+        {
+            
+            break;
+        }
+        case IR_LOAD:
+        {
+            os << "  lw t0, " << std::to_string(off_map[kind.data.load.src]) << "(sp)" << std::endl;
+            os << "  sw t0, " << std::to_string(off_map[val]) << "(sp)" << std::endl;
+            break;
+        }
+        case IR_STORE:
+        {
+            if (kind.data.store.value->kind.tag == IR_INTEGER) {
+                os << "  li t0, " << std::to_string(kind.data.store.value->kind.data.integer.value) << std::endl;
+            }
+            else if (kind.data.store.value->kind.tag == IR_BINARY || kind.data.store.value->kind.tag == IR_LOAD) {
+                os << "  lw t0, " << std::to_string(off_map[kind.data.store.value]) << "(sp)" << std::endl;
+            }
+            else {
+                printf("There is an exception in visit of IR_STORE of GenRisc!\n");
+                assert(false);
+            }
+            os << "  sw t0, " << std::to_string(off_map[kind.data.store.dest]) << "(sp)" << std::endl;
+            break;
+        }
         case IR_RETURN:
         {
             if (kind.data.ret.value->kind.tag == IR_INTEGER) {
                 os << "  li a0, " << kind.data.ret.value->kind.data.integer.value << std::endl;
             }
-            else if (kind.data.ret.value->kind.tag == IR_BINARY) {
-                os << "  mv a0, " << regs[reg_map[kind.data.ret.value]] << std::endl;
+            else if (kind.data.ret.value->kind.tag == IR_BINARY || kind.data.ret.value->kind.tag == IR_LOAD) {
+                os << "  lw a0, " << std::to_string(off_map[kind.data.ret.value]) << "(sp)" << std::endl;
             }
             else {
                 printf("There is a exception in GenRisc of value_ptr!\n");
             }
+            os << "  addi sp, sp, " << std::to_string(offset) << std::endl;
             os << "  ret\n";
             break;
         }
@@ -103,40 +135,25 @@ void GenRisc_Binary(const value_ptr val, std::ostream &os) {
     value_ptr lhs = val->kind.data.binary.lhs;
     value_ptr rhs = val->kind.data.binary.rhs;
     std::string reg_s1, reg_s2, op;
-    int offset = 0;
 
-    // 准备第一个源操作数
+    // 准备第一个操作数
     if (lhs->kind.tag == IR_INTEGER) {
-        if (lhs->kind.data.integer.value == 0) {
-            reg_s1 = "x0";
-        }
-        else {
-            os << "  li " << regs[reg_id + offset] << ", " << std::to_string(lhs->kind.data.integer.value) << std::endl;
-            reg_s1 = regs[reg_id + offset];
-            offset ++;
-        }
+        os << "  li t0, " << std::to_string(lhs->kind.data.integer.value) << std::endl;
     }
-    else if (lhs->kind.tag == IR_BINARY) {
-        reg_s1 = regs[reg_map[lhs]];
+    else if (lhs->kind.tag == IR_BINARY || lhs->kind.tag == IR_LOAD) {
+        os << "  lw t0, " << std::to_string(off_map[lhs]) << "(sp)" << std::endl;
     }
     else {
         printf("There is an exception in GenRisc_Binary!\n");
         assert(false);
     }
 
-    // 准备第二个源操作数
+    // 准备第二个操作数
     if (rhs->kind.tag == IR_INTEGER) {
-        if (rhs->kind.data.integer.value == 0) {
-            reg_s2 = "x0";
-        }
-        else {
-            os << "  li " << regs[reg_id + offset] << ", " << std::to_string(rhs->kind.data.integer.value) << std::endl;
-            reg_s2 = regs[reg_id + offset];
-            offset ++;
-        }
+        os << "  li t1, " << std::to_string(rhs->kind.data.integer.value) << std::endl;
     }
-    else if (rhs->kind.tag == IR_BINARY) {
-        reg_s2 = regs[reg_map[rhs]];
+    else if (rhs->kind.tag == IR_BINARY || rhs->kind.tag == IR_LOAD) {
+        os << "  lw t1, " << std::to_string(off_map[rhs]) << "(sp)" << std::endl;
     }
     else {
         printf("There is an exception in GenRisc_Binary!\n");
@@ -164,8 +181,7 @@ void GenRisc_Binary(const value_ptr val, std::ostream &os) {
         case SAR : op = "sra"; break;
     }
 
-    os << "  " << op << " " << regs[reg_id] << ", " << reg_s1 << ", " << reg_s2 << std::endl;
-    reg_map[val] = reg_id;
+    os << "  " << op << " t0, t0, t1\n";
 
     // 生成二元运算的副指令
     bool flag = false; // 是否有副指令
@@ -178,7 +194,7 @@ void GenRisc_Binary(const value_ptr val, std::ostream &os) {
     }
 
     if (flag)
-        os << "  " << op << " " << regs[reg_id] << ", " << regs[reg_id] << std::endl;
+        os << "  " << op << " t0, t0\n";
 
-    reg_id ++;
+    os << "  " << "sw t0, " << std::to_string(off_map[val]) << "(sp)" << std::endl;
 }

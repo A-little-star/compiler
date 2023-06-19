@@ -65,17 +65,47 @@ void GenCode(const basic_block_ptr bb, std::ostream &os) {
 void GenCode(const value_ptr val, std::ostream &os) {
     const auto &kind = val->kind;
     switch (kind.tag) {
+        case IR_ALLOC:
+        {
+            os << "  " << kind.data.alloc.name << " = alloc ";
+            if (kind.data.alloc.ty.tag == KOOPA_TYPE_INT32) {
+                os << "i32" << std::endl;
+            }
+            else {
+                assert(false);
+            }
+            break;
+        }
+        case IR_LOAD:
+        {
+            os << "  %" << std::to_string(val_id) << " = load " << kind.data.load.src->kind.data.alloc.name << std::endl;
+            val_map[val] = val_id;
+            val_id ++;
+            break;
+        }
+        case IR_STORE:
+        {
+            os << "  store ";
+            if (kind.data.store.value->kind.tag == IR_INTEGER) {
+                os << std::to_string(kind.data.store.value->kind.data.integer.value) << ", ";
+            }
+            else {
+                os << "%" << std::to_string(val_map[kind.data.store.value]) << ", ";
+            }
+            os << kind.data.store.dest->kind.data.alloc.name << std::endl;
+            break;
+        }
         case IR_RETURN:
         {
             if (kind.data.ret.value->kind.tag == IR_INTEGER) {
                 os << "  ret " << kind.data.ret.value->kind.data.integer.value << std::endl;
             }
-            else if (kind.data.ret.value->kind.tag == IR_BINARY) {
+            else {//if  //(kind.data.ret.value->kind.tag == IR_BINARY) {
                 os << "  ret %" << val_map[kind.data.ret.value] << std::endl;
             }
-            else {
-                printf("There is a exception in GenCode of value_ptr!\n");
-            }
+            // else {
+            //     printf("There is a exception in GenCode of value_ptr!\n");
+            // }
             break;
         }
         case IR_BINARY:

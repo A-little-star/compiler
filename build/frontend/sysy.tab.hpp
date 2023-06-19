@@ -61,12 +61,12 @@ extern int yydebug;
     RETURN = 259,
     CONST = 260,
     IDENT = 261,
-    LT = 262,
-    GT = 263,
-    EQ = 264,
-    NEQ = 265,
-    AND = 266,
-    OR = 267,
+    LTOP = 262,
+    GTOP = 263,
+    EQOP = 264,
+    NEQOP = 265,
+    ANDOP = 266,
+    OROP = 267,
     INT_CONST = 268
   };
 #endif

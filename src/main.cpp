@@ -47,6 +47,8 @@ int main(int argc, const char *argv[]) {
     auto v = new GenIR();
     prog_ptr prog = (prog_ptr)ast->accept(v);
 
+    printf("The IR is built successfully!\n");
+
     // 遍历数据结构形式的koopa IR，转化成文本形式输出到output文件中
     ofstream file_o(output);
     if (file_o.is_open()) {
@@ -69,6 +71,8 @@ int main(int argc, const char *argv[]) {
       cout << "main.cpp: Unable to create the input file." << endl;
 
     // 释放IR所占用的内存
+    delete v;
+    v = NULL;
     FreeMem(prog);
   }
   else if (strcmp(mode, "-riscv") == 0) {
@@ -97,6 +101,8 @@ int main(int argc, const char *argv[]) {
     else
       cout << "main.cpp: Unable to create the input file." << endl;
     
+    delete v;
+    v = NULL;
     FreeMem(prog);
   }
   

@@ -35,8 +35,8 @@ class GenIR : public Visitor {
         // 函数名
         func->name = FuncDef->ident;
         // 递归处理函数的返回值类型
-        ret_val_kind *ret_type = (ret_val_kind*)FuncDef->func_type->accept(this);
-        func->kind = *ret_type;
+        type_kind *ret_type = (type_kind*)FuncDef->func_type->accept(this);
+        func->ty = *ret_type;
         // 递归处理函数的基本块
         basic_block_ptr bb = (basic_block_ptr)FuncDef->block->accept(this);
         // 将该基本块添加到所在的函数中
@@ -47,9 +47,8 @@ class GenIR : public Visitor {
     }
     void *visit(FuncTypeAST *FuncType) {
         // 新建一个函数返回值类型的指针
-        ret_val_kind *ret_type = new ret_val_kind;
-        // 目前而言返回值均为int
-        *ret_type = RET_INT;
+        type_kind *ret_type = new type_kind;
+        ret_type->tag = KOOPA_TYPE_INT32;
         return ret_type;
     }
     void *visit(BlockAST *Block) {
@@ -62,7 +61,7 @@ class GenIR : public Visitor {
         bb->insts = new slice;
         bb->insts->len = 0;
         // helper 指针指向当前所在的基本块
-        helper = (void*)bb;
+        tr->bb_cur = bb;
         // 访问基本块下的指令，指令将在处理过程中逐渐push到bb的buffer中
         Block->blockitems->accept(this);
         return bb;
@@ -87,11 +86,12 @@ class GenIR : public Visitor {
         return NULL;
     }
     void *visit(DeclAST *Decl) {
-        Decl->constdecl->accept(this);
+        if (Decl->type == DeclAST::CON_DECL) Decl->constdecl->accept(this);
+        else if (Decl->type == DeclAST::VAR_DECL) Decl->vardecl->accept(this);
         return NULL;
     }
     void *visit(ConstDeclAST *ConstDecl) {
-        if (ConstDecl->btype == "int") cur_type = Visitor::INT;
+        if (ConstDecl->btype == "int") tr->ty_cur.tag = KOOPA_TYPE_INT32;
         else {
             printf("There is an exception in visit of ConstDelAST!\n");
             assert(false);
@@ -107,27 +107,142 @@ class GenIR : public Visitor {
     }
     void *visit(ConstDefAST *ConstDef) {
         int val = ConstDef->constinitval->get_value();
-        symtable[ConstDef->ident] = {"i32", val, CON};
+        // symtable[ConstDef->ident] = {"i32", val, CON, true};
+        if (tr->ty_cur.tag == KOOPA_TYPE_INT32) {
+            symtable[ConstDef->ident].ty = "i32";
+            symtable[ConstDef->ident].value = val;
+            symtable[ConstDef->ident].kind = CON;
+            symtable[ConstDef->ident].has_value = true;
+        }
+        else {
+            printf("There is an exception in visit of ConstDef!\n");
+            assert(false);
+        }
         return NULL;
+    }
+    void *visit(VarDeclAST *VarDecl) {
+        
+        if (VarDecl->btype == "int") tr->ty_cur.tag = KOOPA_TYPE_INT32;
+        else {
+            printf("There is an exception in visit of VarDecl!\n");
+            assert(false);
+        }
+        VarDecl->vardefs->accept(this);
+        return NULL;
+    }
+    void *visit(VarDefsAST *VarDefs) {
+        for (size_t i = 0; i < VarDefs->vardefs.size(); i ++ ) {
+            VarDefs->vardefs[i]->accept(this);
+        }
+        return NULL;
+    }
+    void *visit(VarDefAST *VarDef) {
+        if (VarDef->type == VarDefAST::NO_VALUE) {
+            if (tr->ty_cur.tag == KOOPA_TYPE_INT32) {
+                // 首先插入一个alloc指令，将变量分配出来
+                value_ptr val_dest = tr->NewValue();
+                val_dest->kind.tag = IR_ALLOC;
+                if (tr->ty_cur.tag == KOOPA_TYPE_INT32) val_dest->kind.data.alloc.ty.tag = KOOPA_TYPE_INT32;
+                else {
+                    printf("There is an exception in visit of VarDef!\n");
+                    assert(false);
+                }
+
+                std::string str = "@" + VarDef->ident;
+                val_dest->kind.data.alloc.name = new char;
+                for (size_t i = 0; i < str.size(); i ++ ) {
+                    val_dest->kind.data.alloc.name[i] = str[i];
+                }
+                val_dest->kind.data.alloc.name[str.size()] = '\0';
+                // val_dest->kind.data.alloc.name = "@" + VarDef->ident;
+                tr->AddValue(val_dest);
+
+                symtable[VarDef->ident].ty = "i32";
+                symtable[VarDef->ident].value = 0;
+                symtable[VarDef->ident].kind = VAR;
+                symtable[VarDef->ident].has_value = false;
+                symtable[VarDef->ident].val_p = (void*)val_dest;
+            }
+            else {
+                printf("There is an exception in visit of VarDef!\n");
+                assert(false);
+            }
+        }
+        else if (VarDef->type == VarDefAST::HAS_VALUE) {
+            if (tr->ty_cur.tag == KOOPA_TYPE_INT32) {
+
+                // 首先插入一个alloc指令，将变量分配出来
+                value_ptr val_dest = tr->NewValue();
+                val_dest->kind.tag = IR_ALLOC;
+                if (tr->ty_cur.tag == KOOPA_TYPE_INT32) val_dest->kind.data.alloc.ty.tag = KOOPA_TYPE_INT32;
+                else {
+                    printf("There is an exception in visit of VarDef!\n");
+                    assert(false);
+                }
+
+                std::string str = "@" + VarDef->ident;
+                val_dest->kind.data.alloc.name = new char;
+                for (size_t i = 0; i < str.size(); i ++ ) {
+                    val_dest->kind.data.alloc.name[i] = str[i];
+                }
+                val_dest->kind.data.alloc.name[str.size()] = '\0';
+                // val_dest->kind.data.alloc.name = const_cast<char*>(str.data());
+                // val_dest->kind.data.alloc.name = str.c_str();
+                tr->AddValue(val_dest);
+
+                // 将变量添加到符号表中
+                symtable[VarDef->ident].ty = "i32";
+                symtable[VarDef->ident].value = 0;
+                symtable[VarDef->ident].kind = VAR;
+                symtable[VarDef->ident].has_value = true;
+                symtable[VarDef->ident].val_p = (void*)val_dest;
+
+                // 然后计算该变量的值
+                
+                value_ptr val = (value_ptr)VarDef->initval->accept(this);
+
+                // 将该计算出来的值store给变量
+                value_ptr val_store = tr->NewValue();
+                val_store->kind.tag = IR_STORE;
+                val_store->kind.data.store.dest = val_dest;
+                val_store->kind.data.store.value = val;
+                tr->AddValue(val_store);
+
+                
+            }
+            else {
+                assert(false);
+            }
+        }
+        else {
+            assert(false);
+        }
+        return NULL;
+    }
+    void *visit(InitValAST *InitVal) {
+        value_ptr val = (value_ptr)InitVal->exp->accept(this);
+        return val;
     }
     void *visit(StmtAST *Stmt) {
         // 创建一个新的value类型（这里表示指令），并为其成员变量分配空间
-        value_ptr val = new value;
-        val->used = new slice;
-        val->used->len = 0;
-        val->used_by = new slice;
-        val->used_by->len = 0;
+        value_ptr val = tr->NewValue();
         
-        // 目前只处理return指令
-        val->kind.tag = IR_RETURN;
+        if (Stmt->type == StmtAST::RETURN) {
+            // 目前只处理return指令
+            val->kind.tag = IR_RETURN;
 
-        value_ptr val_ret = (value_ptr)Stmt->exp->accept(this);
-        val->kind.data.ret.value = val_ret;
-        // 将该指令添加到当前基本块中
-        basic_block_ptr bb_cur = (basic_block_ptr)helper;
-        bb_cur->insts->buffer.push_back(val);
-        bb_cur->insts->len ++;
-        bb_cur->insts->kind = RISK_VALUE;
+            value_ptr val_ret = (value_ptr)Stmt->exp->accept(this);
+            val->kind.data.ret.value = val_ret;
+            // 将该指令添加到当前基本块中
+            tr->AddValue(val);
+        }
+        else if (Stmt->type == StmtAST::ASSIGN) {
+            val->kind.tag = IR_STORE;
+            val->kind.data.store.value = (value_ptr)Stmt->exp->accept(this);
+            val->kind.data.store.dest = (value_ptr)symtable[Stmt->lval].val_p;
+            symtable[Stmt->lval].has_value = true;
+            tr->AddValue(val);
+        }
 
         return val;
     }
@@ -147,15 +262,26 @@ class GenIR : public Visitor {
             return val;
         }
         else if (PrimaryExp->type == PrimaryExpAST::LVAL) {
-            value_ptr val = new value;
-            val->kind.tag = IR_INTEGER;
-            val->kind.data.integer.value = symtable[PrimaryExp->lval].value;
-            return val;
+            if (symtable[PrimaryExp->lval].kind == CON) {
+                value_ptr val = new value;
+                val->kind.tag = IR_INTEGER;
+                val->kind.data.integer.value = symtable[PrimaryExp->lval].value;
+                return val;
+            }
+            else if (symtable[PrimaryExp->lval].kind == VAR) {
+                value_ptr val = tr->NewValue();
+                val->kind.tag = IR_LOAD;
+                val->kind.data.load.src = (value_ptr)symtable[PrimaryExp->lval].val_p;
+                tr->AddValue(val);
+                
+                return val;
+            }
         }
         else {
             printf("There is a exception in visit of PrimaryExp!\n");
             return NULL;
         }
+        return NULL;
     }
     void *visit(UnaryExpAST *UnaryExp) {
         if (UnaryExp->type == UnaryExpAST::NAN) {
@@ -171,11 +297,7 @@ class GenIR : public Visitor {
             }
             
             // 新建一个value类型，并为其成员变量分配内存空间
-            value_ptr val = new value;
-            val->used = new slice;
-            val->used->len = 0;
-            val->used_by = new slice;
-            val->used_by->len = 0;
+            value_ptr val = tr->NewValue();
 
             val->kind.tag = IR_BINARY;
             // 设置二元运算指令的opcode
@@ -189,10 +311,7 @@ class GenIR : public Visitor {
             val->kind.data.binary.rhs = (value_ptr)UnaryExp->unaryexp->accept(this);
 
             // 将该指令添加到当前的基本块中
-            basic_block_ptr bb_cur = (basic_block_ptr)helper;
-            bb_cur->insts->buffer.push_back(val);
-            bb_cur->insts->len ++;
-            bb_cur->insts->kind = RISK_VALUE;
+            tr->AddValue(val);
             
             return val;
         }
@@ -207,11 +326,7 @@ class GenIR : public Visitor {
             return val;
         }
         else {
-            value_ptr val = new value;
-            val->used = new slice;
-            val->used->len = 0;
-            val->used_by = new slice;
-            val->used_by->len = 0;
+            value_ptr val = tr->NewValue();
 
             val->kind.tag = IR_BINARY;
             
@@ -227,10 +342,7 @@ class GenIR : public Visitor {
             val->kind.data.binary.rhs = (value_ptr)MulExp->unaryexp->accept(this);
 
             // 将该指令添加到当前的基本块中
-            basic_block_ptr bb_cur = (basic_block_ptr)helper;
-            bb_cur->insts->buffer.push_back(val);
-            bb_cur->insts->len ++;
-            bb_cur->insts->kind = RISK_VALUE;
+            tr->AddValue(val);
             return val;
         }
     }
@@ -240,11 +352,7 @@ class GenIR : public Visitor {
             return val;
         }
         else {
-            value_ptr val = new value;
-            val->used = new slice;
-            val->used->len = 0;
-            val->used_by = new slice;
-            val->used_by->len = 0;
+            value_ptr val = tr->NewValue();
 
             val->kind.tag = IR_BINARY;
 
@@ -259,10 +367,7 @@ class GenIR : public Visitor {
             val->kind.data.binary.rhs = (value_ptr)AddExp->mulexp->accept(this);
 
             // 将该指令添加到当前的基本块中
-            basic_block_ptr bb_cur = (basic_block_ptr)helper;
-            bb_cur->insts->buffer.push_back(val);
-            bb_cur->insts->len ++;
-            bb_cur->insts->kind = RISK_VALUE;
+            tr->AddValue(val);
             return val;
         }
     }
@@ -272,11 +377,7 @@ class GenIR : public Visitor {
             return val;
         }
         else {
-            value_ptr val = new value;
-            val->used = new slice;
-            val->used->len = 0;
-            val->used_by = new slice;
-            val->used_by->len = 0;
+            value_ptr val = tr->NewValue();
 
             val->kind.tag = IR_BINARY;
 
@@ -293,10 +394,7 @@ class GenIR : public Visitor {
             val->kind.data.binary.rhs = (value_ptr)RelExp->addexp->accept(this);
 
             // 将该指令添加到当前的基本块中
-            basic_block_ptr bb_cur = (basic_block_ptr)helper;
-            bb_cur->insts->buffer.push_back(val);
-            bb_cur->insts->len ++;
-            bb_cur->insts->kind = RISK_VALUE;
+            tr->AddValue(val);
             return val;
         }
     }
@@ -306,11 +404,7 @@ class GenIR : public Visitor {
             return val;
         }
         else {
-            value_ptr val = new value;
-            val->used = new slice;
-            val->used->len = 0;
-            val->used_by = new slice;
-            val->used_by->len = 0;
+            value_ptr val = tr->NewValue();
 
             val->kind.tag = IR_BINARY;
 
@@ -325,10 +419,7 @@ class GenIR : public Visitor {
             val->kind.data.binary.rhs = (value_ptr)EqExp->relexp->accept(this);
 
             // 将该指令添加到当前的基本块中
-            basic_block_ptr bb_cur = (basic_block_ptr)helper;
-            bb_cur->insts->buffer.push_back(val);
-            bb_cur->insts->len ++;
-            bb_cur->insts->kind = RISK_VALUE;
+            tr->AddValue(val);
             return val;
         }
     }
@@ -338,11 +429,7 @@ class GenIR : public Visitor {
             return val;
         }
         else {
-            value_ptr l_val = new value;
-            l_val->used = new slice;
-            l_val->used->len = 0;
-            l_val->used_by = new slice;
-            l_val->used_by->len = 0;
+            value_ptr l_val = tr->NewValue();
             l_val->kind.tag = IR_BINARY;
             l_val->kind.data.binary.op = NOT_EQ;
             l_val->kind.data.binary.lhs = new value;
@@ -351,16 +438,9 @@ class GenIR : public Visitor {
             l_val->kind.data.binary.rhs = (value_ptr)LAndExp->landexp->accept(this);
 
             // 将该指令添加到当前的基本块中
-            basic_block_ptr bb_cur = (basic_block_ptr)helper;
-            bb_cur->insts->buffer.push_back(l_val);
-            bb_cur->insts->len ++;
-            bb_cur->insts->kind = RISK_VALUE;
+            tr->AddValue(l_val);
 
-            value_ptr r_val = new value;
-            r_val->used = new slice;
-            r_val->used->len = 0;
-            r_val->used_by = new slice;
-            r_val->used_by->len = 0;
+            value_ptr r_val = tr->NewValue();
             r_val->kind.tag = IR_BINARY;
             r_val->kind.data.binary.op = NOT_EQ;
             r_val->kind.data.binary.lhs = new value;
@@ -368,15 +448,9 @@ class GenIR : public Visitor {
             r_val->kind.data.binary.lhs->kind.data.integer.value = 0;
             r_val->kind.data.binary.rhs = (value_ptr)LAndExp->eqexp->accept(this);
 
-            bb_cur->insts->buffer.push_back(r_val);
-            bb_cur->insts->len ++;
-            bb_cur->insts->kind = RISK_VALUE;
+            tr->AddValue(r_val);
 
-            value_ptr val = new value;
-            val->used = new slice;
-            val->used->len = 0;
-            val->used_by = new slice;
-            val->used_by->len = 0;
+            value_ptr val = tr->NewValue();
 
             val->kind.tag = IR_BINARY;
 
@@ -384,14 +458,9 @@ class GenIR : public Visitor {
 
             val->kind.data.binary.lhs = l_val;
             val->kind.data.binary.rhs = r_val;
-            // val->kind.data.binary.lhs = (value_ptr)LAndExp->landexp->accept(this);
-            // val->kind.data.binary.rhs = (value_ptr)LAndExp->eqexp->accept(this);
 
             // 将该指令添加到当前的基本块中
-            // basic_block_ptr bb_cur = (basic_block_ptr)helper;
-            bb_cur->insts->buffer.push_back(val);
-            bb_cur->insts->len ++;
-            bb_cur->insts->kind = RISK_VALUE;
+            tr->AddValue(val);
             return val;
         }
     }
@@ -401,11 +470,7 @@ class GenIR : public Visitor {
             return val;
         }
         else {
-            value_ptr l_val = new value;
-            l_val->used = new slice;
-            l_val->used->len = 0;
-            l_val->used_by = new slice;
-            l_val->used_by->len = 0;
+            value_ptr l_val = tr->NewValue();
             l_val->kind.tag = IR_BINARY;
             l_val->kind.data.binary.op = NOT_EQ;
             l_val->kind.data.binary.lhs = new value;
@@ -414,16 +479,9 @@ class GenIR : public Visitor {
             l_val->kind.data.binary.rhs = (value_ptr)LOrExp->lorexp->accept(this);
 
             // 将该指令添加到当前的基本块中
-            basic_block_ptr bb_cur = (basic_block_ptr)helper;
-            bb_cur->insts->buffer.push_back(l_val);
-            bb_cur->insts->len ++;
-            bb_cur->insts->kind = RISK_VALUE;
+            tr->AddValue(l_val);
 
-            value_ptr r_val = new value;
-            r_val->used = new slice;
-            r_val->used->len = 0;
-            r_val->used_by = new slice;
-            r_val->used_by->len = 0;
+            value_ptr r_val = tr->NewValue();
             r_val->kind.tag = IR_BINARY;
             r_val->kind.data.binary.op = NOT_EQ;
             r_val->kind.data.binary.lhs = new value;
@@ -431,15 +489,9 @@ class GenIR : public Visitor {
             r_val->kind.data.binary.lhs->kind.data.integer.value = 0;
             r_val->kind.data.binary.rhs = (value_ptr)LOrExp->landexp->accept(this);
 
-            bb_cur->insts->buffer.push_back(r_val);
-            bb_cur->insts->len ++;
-            bb_cur->insts->kind = RISK_VALUE;
+            tr->AddValue(r_val);
 
-            value_ptr val = new value;
-            val->used = new slice;
-            val->used->len = 0;
-            val->used_by = new slice;
-            val->used_by->len = 0;
+            value_ptr val = tr->NewValue();
 
             val->kind.tag = IR_BINARY;
 
@@ -447,14 +499,9 @@ class GenIR : public Visitor {
 
             val->kind.data.binary.lhs = l_val;
             val->kind.data.binary.rhs = r_val;
-            // val->kind.data.binary.lhs = (value_ptr)LOrExp->lorexp->accept(this);
-            // val->kind.data.binary.rhs = (value_ptr)LOrExp->landexp->accept(this);
 
             // 将该指令添加到当前的基本块中
-            // basic_block_ptr bb_cur = (basic_block_ptr)helper;
-            bb_cur->insts->buffer.push_back(val);
-            bb_cur->insts->len ++;
-            bb_cur->insts->kind = RISK_VALUE;
+            tr->AddValue(val);
             return val;
         }
     }

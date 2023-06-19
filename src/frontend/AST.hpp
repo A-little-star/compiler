@@ -111,11 +111,14 @@ class BlockItemAST : public BaseAST {
 
 class DeclAST : public BaseAST {
     public:
+        enum {CON_DECL, VAR_DECL} type;
         std::unique_ptr<BaseAST> constdecl;
+        std::unique_ptr<BaseAST> vardecl;
 
         void Dump() const override {
             std::cout << "DeclAST: {\n";
-            constdecl->Dump();
+            if (type == CON_DECL) constdecl->Dump();
+            else if (type == VAR_DECL) vardecl->Dump();
             std::cout << "}\n";
         }
 
@@ -190,8 +193,71 @@ class ConstInitValAST : public BaseAST {
         }
 };
 
+class VarDeclAST : public BaseAST {
+    public:
+        std::string btype;
+        std::unique_ptr<BaseAST> vardefs;
+
+        void Dump() const override {
+            std::cout << "VarDeclAST: {\n";
+            vardefs->Dump();
+            std::cout << "}\n";
+        }
+
+        void *accept(Visitor *v) override {
+            return v->visit(this);
+        }
+};
+
+class VarDefsAST : public BaseAST {
+    public:
+        std::vector<std::unique_ptr<BaseAST>> vardefs;
+
+        void Dump() const override {
+            for (size_t i = 0; i < vardefs.size(); i ++ ) {
+                vardefs[i]->Dump();
+            }
+        }
+
+        void *accept(Visitor *v) override {
+            return v->visit(this);
+        }
+};
+
+class VarDefAST : public BaseAST {
+    public:
+        enum {NO_VALUE, HAS_VALUE} type;
+        std::string ident;
+        std::unique_ptr<BaseAST> initval;
+
+        void Dump() const override {
+            std::cout << "VarDefAST: {\n";
+            initval->Dump();
+            std::cout << "}\n";
+        }
+        void *accept(Visitor *v) override {
+            return v->visit(this);
+        }
+};
+
+class InitValAST : public BaseAST {
+    public:
+        std::unique_ptr<BaseAST> exp;
+
+        void Dump() const override {
+            std::cout << "InitValAST: {\n";
+            exp->Dump();
+            std::cout << "}\n";
+        }
+        void *accept(Visitor *v) override {
+            return v->visit(this);
+        }
+};
+
 class StmtAST : public BaseAST {
     public:
+        enum {ASSIGN, RETURN} type;
+        std::string lval;
         std::string ret;
         std::unique_ptr<BaseAST> exp;
 
@@ -255,10 +321,13 @@ class PrimaryExpAST : public BaseAST {
             if (this->type == NUM) {
                 std::cout << number << std::endl;
             }
-            else {
-                std::cout << "UnaryExp {\n";
+            else if (type == EXP) {
+                std::cout << "PrimaryExp {\n";
                 exp->Dump();
                 std::cout << "}\n";
+            }
+            else {
+                std::cout << lval << std::endl;
             }
         }
         void *accept(Visitor *v) override {

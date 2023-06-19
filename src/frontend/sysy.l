@@ -44,12 +44,12 @@ Hexadecimal   0[xX][0-9a-fA-F]+
 
 .               { return yytext[0]; }
 
-"<="            { yylval.str_val = new string(yytext); return LT; }
-">="            { yylval.str_val = new string(yytext); return GT; }
-"=="            { yylval.str_val = new string(yytext); return EQ; }
-"!="            { yylval.str_val = new string(yytext); return NEQ; }
-"&&"            { yylval.str_val = new string(yytext); return AND; }
-"||"            { yylval.str_val = new string(yytext); return OR; }
+"<="            { yylval.str_val = new string(yytext); return LTOP; }
+">="            { yylval.str_val = new string(yytext); return GTOP; }
+"=="            { yylval.str_val = new string(yytext); return EQOP; }
+"!="            { yylval.str_val = new string(yytext); return NEQOP; }
+"&&"            { yylval.str_val = new string(yytext); return ANDOP; }
+"||"            { yylval.str_val = new string(yytext); return OROP; }
 
 
 

@@ -50,6 +50,36 @@ enum inst_kind_tag {
     IR_RETURN,
 };
 
+enum type_kind_tag {
+    // 
+    KOOPA_TYPE_INT32,
+    // 
+    KOOPA_TYPE_UNIT,
+    //
+    KOOPA_TYPE_ARRAY,
+    //
+    KOOPA_TYPE_POINTER,
+    //
+    KOOPA_TYPE_FUNCTION,
+};
+
+typedef struct type_kind {
+    type_kind_tag tag;
+    // union {
+    //     struct {
+    //         struct type_kind *base;
+    //         size_t len;
+    //     } array;
+    //     struct {
+    //         struct type_kind *base;
+    //     } pointer;
+    //     struct {
+    //         slice_ptr params;
+    //         struct type_kind *ret;
+    //     } function;
+    // } data;
+} type_kind;
+
 enum op_t {
     NOT_EQ,
     EQ,
@@ -84,8 +114,13 @@ typedef struct {
 } integer_t;
 
 typedef struct {
-    char* name;
-} variable_t;
+    type_kind ty;
+    char *name;
+} alloc_t;
+
+// typedef struct {
+//     std::string name;
+// } variable_t;
 
 typedef struct {
     value_ptr src;
@@ -104,7 +139,8 @@ typedef struct {
     inst_kind_tag tag;
     union {
         integer_t integer;
-        variable_t var;
+        // variable_t var;
+        alloc_t alloc;
         load_t load;
         store_t store;
         binary_t binary;
@@ -114,6 +150,8 @@ typedef struct {
 
 // value 类型可是是一条指令，也可以是一个立即数
 struct value {
+    // 该value的数据类型
+    type_kind ty;
     // 该指令用到的操作数
     slice_ptr used;
     // 哪些指令用到该指令的返回值
@@ -133,13 +171,9 @@ typedef struct {
 
 typedef program *prog_ptr;
 
-typedef enum ret_val_kind {
-    RET_INT,
-} ret_val_kind;
-
 typedef struct {
     // Type of function's return value.
-    ret_val_kind kind;
+    type_kind ty;
     // Name of function.
     std::string name;
     // Parameters.
@@ -166,6 +200,8 @@ typedef basic_block *basic_block_ptr;
 void irDS2Text(const prog_ptr prog, std::ostream &os);
 
 void FreeMem(prog_ptr prog);
+
+int CalStackMem(const func_ptr func);
 
 void ir2riscv(const prog_ptr prog, std::ostream &os);
 

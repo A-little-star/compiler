@@ -1,9 +1,0 @@
-  .text
-  .globl main
-main:
-  li t0, 4
-  mul t0, x0, t0
-  li t1, 4
-  add t1, t1, t0
-  mv a0, t1
-  ret

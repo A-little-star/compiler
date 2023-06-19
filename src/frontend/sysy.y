@@ -38,11 +38,12 @@ using namespace std;
 // lexer 返回的所有 token 种类的声明
 // 注意 IDENT 和 INT_CONST 会返回 token 的值, 分别对应 str_val 和 int_val
 %token INT RETURN CONST
-%token <str_val> IDENT LT GT EQ NEQ AND OR
+%token <str_val> IDENT LTOP GTOP EQOP NEQOP ANDOP OROP
 %token <int_val> INT_CONST
 
 // 非终结符的类型定义
 %type <ast_val> FuncDef FuncType Block Stmt Exp PrimaryExp UnaryExp MulExp AddExp RelExp EqExp LAndExp LOrExp BlockItems BlockItem Decl ConstDecl ConstDefs ConstDef ConstInitVal ConstExp
+%type <ast_val> VarDecl VarDefs VarDef InitVal
 %type <str_val> UnaryOp RelOp EqOp LAndOp LOrOp BType LVal
 %type <int_val> Number
 
@@ -133,7 +134,14 @@ BlockItem
 Decl
   : ConstDecl {
     auto ast = new DeclAST();
+    ast->type = DeclAST::CON_DECL;
     ast->constdecl = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | VarDecl {
+    auto ast = new DeclAST();
+    ast->type = DeclAST::VAR_DECL;
+    ast->vardecl = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
   ;
@@ -183,11 +191,65 @@ ConstInitVal
   }
   ;
 
+VarDecl
+  : BType VarDefs ';' {
+    auto ast = new VarDeclAST();
+    ast->btype = *unique_ptr<string>($1);
+    ast->vardefs = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  ;
+
+VarDefs
+  : VarDefs ',' VarDef {
+    VarDefsAST *ast = (VarDefsAST*)($1);
+    ast->vardefs.emplace_back(unique_ptr<BaseAST>($3));
+    $$ = ast;
+  }
+  | VarDef {
+    auto ast = new VarDefsAST();
+    ast->vardefs.emplace_back(unique_ptr<BaseAST>($1));
+    $$ = ast;
+  }
+  ;
+
+VarDef
+  : IDENT {
+    auto ast = new VarDefAST();
+    ast->type = VarDefAST::NO_VALUE;
+    ast->ident = *unique_ptr<string>($1);
+    $$ = ast;
+  }
+  | IDENT '=' InitVal {
+    auto ast = new VarDefAST();
+    ast->type = VarDefAST::HAS_VALUE;
+    ast->ident = *unique_ptr<string>($1);
+    ast->initval = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  ;
+
+InitVal
+  : Exp {
+    auto ast = new InitValAST();
+    ast->exp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  ;
+
 Stmt
   : RETURN Exp ';' {
     auto ast = new StmtAST();
+    ast->type = StmtAST::RETURN;
     ast->ret = "return";
     ast->exp = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  | LVal '=' Exp ';' {
+    auto ast = new StmtAST();
+    ast->type = StmtAST::ASSIGN;
+    ast->lval = *unique_ptr<string>($1);
+    ast->exp = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
   ;
@@ -342,8 +404,8 @@ RelExp
 RelOp
   : '<' { $$ = new string("<"); }
   | '>' { $$ = new string(">"); }
-  | LT { $$ = new string("<="); }
-  | GT { $$ = new string(">="); }
+  | LTOP { $$ = new string("<="); }
+  | GTOP { $$ = new string(">="); }
   ;
 
 EqExp
@@ -364,8 +426,8 @@ EqExp
   ;
 
 EqOp
-  : EQ { $$ = new string("=="); }
-  | NEQ { $$ = new string("!="); }
+  : EQOP { $$ = new string("=="); }
+  | NEQOP { $$ = new string("!="); }
   ;
 
 LAndExp
@@ -386,7 +448,7 @@ LAndExp
   ;
 
 LAndOp
-  : AND { $$ = new string("&&"); }
+  : ANDOP { $$ = new string("&&"); }
   ;
 
 LOrExp
@@ -407,7 +469,7 @@ LOrExp
   ;
 
 LOrOp
-  : OR { $$ = new string("||"); }
+  : OROP { $$ = new string("||"); }
   ;
 
 %%
