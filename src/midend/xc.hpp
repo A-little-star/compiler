@@ -167,4 +167,6 @@ void irDS2Text(const prog_ptr prog, std::ostream &os);
 
 void FreeMem(prog_ptr prog);
 
+void ir2riscv(const prog_ptr prog, std::ostream &os);
+
 #endif

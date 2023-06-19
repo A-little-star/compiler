@@ -6,7 +6,7 @@
 
 SysY语言是一种面向系统的高级编程语言，是一个简化的C语言子集，具有较为简单的语法和语义规则。
 
-Koopa IR是参考北京大学编译实践在线文档（https://pku-minic.github.io/online-doc/#/）的一种中间表示，它在形式上类似于LLVM IR，但简化了很多内容，只专注于需要的部分。
+Koopa IR是参考北京大学编译实践在线文档（ https://pku-minic.github.io/online-doc/#/ ）的一种中间表示，它在形式上类似于LLVM IR，但简化了很多内容，只专注于需要的部分。
 
 
 ## 目前所支持的文法规则

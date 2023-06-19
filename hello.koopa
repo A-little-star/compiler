@@ -1,7 +1,6 @@
 fun @main(): i32 {
 %entry:
-  %0 = mul 2, 4
-  %1 = mod %0, 3
-  %2 = add 4, %1
-  ret %2
+  %0 = mul 0, 4
+  %1 = add 4, %0
+  ret %1
 }

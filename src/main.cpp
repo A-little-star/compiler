@@ -71,6 +71,34 @@ int main(int argc, const char *argv[]) {
     // 释放IR所占用的内存
     FreeMem(prog);
   }
+  else if (strcmp(mode, "-riscv") == 0) {
+    // 构造一个生成IR的Visitor类，调用accept()方法生成数据结构形式的koopa IR
+    auto v = new GenIR();
+    prog_ptr prog = (prog_ptr)ast->accept(v);
+
+    // 遍历数据结构形式的IR，生成RISC-V汇编
+    ofstream file_o(output);
+    if (file_o.is_open()) {
+      ir2riscv(prog, file_o);
+      file_o.close();
+    }
+    else 
+      cout << "main.cpp: Unable to create the output file." << endl;
+
+    // 将output文件中的内容打印出来显示
+    ifstream file_i(output);
+    if (file_i.is_open()) {
+      string line;
+      while (getline(file_i, line)) {
+        cout << line << endl;
+      }
+      file_i.close();
+    }
+    else
+      cout << "main.cpp: Unable to create the input file." << endl;
+    
+    FreeMem(prog);
+  }
   
   // 输出解析得到的 AST, 其实就是个字符串
   // string ast_str = ast->Dump();

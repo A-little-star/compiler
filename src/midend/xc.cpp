@@ -122,6 +122,10 @@ void GenCode(const value_ptr val, std::ostream &os) {
             val_id ++;
             break;
         }
+        default: {
+            printf("There is a invalid type in GenCode of value_ptr!\n");
+            assert(false);
+        }
     }
 }
 
