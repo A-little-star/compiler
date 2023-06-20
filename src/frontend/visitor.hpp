@@ -35,7 +35,7 @@ class InitValAST;
 
 class Translate_Helper {
     public:
-        // 当前所在的基本块
+        // 当前所在的基本块（Koopa IR中的概念）
         basic_block_ptr bb_cur;
         // 当前应该处理的类型
         type_kind ty_cur;

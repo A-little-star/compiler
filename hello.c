@@ -4,8 +4,14 @@ int main()
     // ignore me
     // -1 + 5 * (3 / 2)
     // const int x = 1 + 1;
-    int x = 100;
-    int y = x * 3 + x % 9;
-    int z = (x + y) * y;
-    return z + 1;
+    int a = 1;
+    {
+        a = 2;
+        int a = 3;
+        {
+            a = 4;
+            int b = 5;
+        }
+    }
+    return 0;
 }

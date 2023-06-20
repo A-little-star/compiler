@@ -20,8 +20,26 @@ struct symval{
     bool has_value;
     // 该符号对应的变量指针
     void *val_p;
+    // 该符号的重用数
+    int use_num;
 };
 
-extern std::unordered_map<std::string, symval> symtable;
+class BlockAST;
+
+struct BlockTreeNode {
+    BlockTreeNode *father_block;
+    BlockAST *block;
+    std::unordered_map<std::string, symval> symtable;
+};
+
+struct BlockTree {
+    // 根节点
+    BlockTreeNode *root;
+    // 当前处理的结点
+    BlockTreeNode *current;
+};
+
+extern BlockTree bt;
+// extern std::unordered_map<std::string, symval> symtable;
 
 #endif

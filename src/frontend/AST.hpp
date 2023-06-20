@@ -3,8 +3,9 @@
 #include <iostream>
 #include <vector>
 #include <memory>
+#include <unordered_map>
 #include "visitor.hpp"
-#include "SymTable.hpp"
+#include "../midend/SymTable.hpp"
 class BaseAST {
     public:
         virtual ~BaseAST() = default;
@@ -256,10 +257,18 @@ class InitValAST : public BaseAST {
 
 class StmtAST : public BaseAST {
     public:
-        enum {ASSIGN, RETURN} type;
+        /*
+        指令类型：
+        assign 表示赋值指令
+        return 表示return指令
+        void 表示空语句（即只有表达式，没有进行赋值，包括";"）
+        block 表示语句块
+        */
+        enum {ASSIGN, RETURN, VOID, BLOCK} type;
         std::string lval;
         std::string ret;
         std::unique_ptr<BaseAST> exp;
+        std::unique_ptr<BaseAST> block;
 
         void Dump() const override {
             std::cout << "Stmt {\n";
@@ -336,7 +345,7 @@ class PrimaryExpAST : public BaseAST {
 
         int get_value() override {
             if (type == EXP) return exp->get_value();
-            else if (type == LVAL) return symtable[lval].value;
+            else if (type == LVAL) return bt.current->symtable[lval].value;
             else return number;
         }
 };

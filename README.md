@@ -11,27 +11,44 @@ Koopa IR是参考北京大学编译实践在线文档（ https://pku-minic.githu
 
 ## 目前所支持的文法规则
 
-```
-CompUnit    ::= FuncDef;
+```enbf
+CompUnit      ::= FuncDef;
 
-FuncDef     ::= FuncType IDENT "(" ")" Block;
-FuncType    ::= "int";
+Decl          ::= ConstDecl | VarDecl;
+ConstDecl     ::= "const" BType ConstDef {"," ConstDef} ";";
+BType         ::= "int";
+ConstDef      ::= IDENT "=" ConstInitVal;
+ConstInitVal  ::= ConstExp;
+VarDecl       ::= BType VarDef {"," VarDef} ";";
+VarDef        ::= IDENT | IDENT "=" InitVal;
+InitVal       ::= Exp;
 
-Block       ::= "{" Stmt "}";
-Stmt        ::= "return" Exp ";";
+FuncDef       ::= FuncType IDENT "(" ")" Block;
+FuncType      ::= "int";
 
-Exp         ::= LOrExp;
-PrimaryExp  ::= "(" Exp ")" | Number;
-Number      ::= INT_CONST;
-UnaryExp    ::= PrimaryExp | UnaryOp UnaryExp;
-UnaryOp     ::= "+" | "-" | "!";
-MulExp      ::= UnaryExp | MulExp ("*" | "/" | "%") UnaryExp;
-AddExp      ::= MulExp | AddExp ("+" | "-") MulExp;
-RelExp      ::= AddExp | RelExp ("<" | ">" | "<=" | ">=") AddExp;
-EqExp       ::= RelExp | EqExp ("==" | "!=") RelExp;
-LAndExp     ::= EqExp | LAndExp "&&" EqExp;
-LOrExp      ::= LAndExp | LOrExp "||" LAndExp;
-```
+Block         ::= "{" {BlockItem} "}";
+BlockItem     ::= Decl | Stmt;
+Stmt          ::= LVal "=" Exp ";"
+                | [Exp] ";"
+                | Block
+                | "if" "(" Exp ")" Stmt ["else" Stmt]
+                | "return" [Exp] ";";
+
+Exp           ::= LOrExp;
+LVal          ::= IDENT;
+PrimaryExp    ::= "(" Exp ")" | LVal | Number;
+Number        ::= INT_CONST;
+UnaryExp      ::= PrimaryExp | UnaryOp UnaryExp;
+UnaryOp       ::= "+" | "-" | "!";
+MulExp        ::= UnaryExp | MulExp ("*" | "/" | "%") UnaryExp;
+AddExp        ::= MulExp | AddExp ("+" | "-") MulExp;
+RelExp        ::= AddExp | RelExp ("<" | ">" | "<=" | ">=") AddExp;
+EqExp         ::= RelExp | EqExp ("==" | "!=") RelExp;
+LAndExp       ::= EqExp | LAndExp "&&" EqExp;
+LOrExp        ::= LAndExp | LOrExp "||" LAndExp;
+ConstExp      ::= Exp;
+
+```enbf
 
 ## IR
 生成抽象语法树AST之后，编译器会遍历AST，生成数据结构形式的Koopa IR，生成的过程写在midend/ast2ir.cpp中。

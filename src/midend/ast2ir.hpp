@@ -37,21 +37,6 @@ class GenIR : public Visitor {
         // 递归处理函数的返回值类型
         type_kind *ret_type = (type_kind*)FuncDef->func_type->accept(this);
         func->ty = *ret_type;
-        // 递归处理函数的基本块
-        basic_block_ptr bb = (basic_block_ptr)FuncDef->block->accept(this);
-        // 将该基本块添加到所在的函数中
-        func->bbs->buffer.push_back(bb);
-        func->bbs->len ++;
-        func->bbs->kind = RISK_BASIC_BLOCK;
-        return func;
-    }
-    void *visit(FuncTypeAST *FuncType) {
-        // 新建一个函数返回值类型的指针
-        type_kind *ret_type = new type_kind;
-        ret_type->tag = KOOPA_TYPE_INT32;
-        return ret_type;
-    }
-    void *visit(BlockAST *Block) {
         // 创建一个新的Basic block，并为其成员变量分配空间；
         basic_block_ptr bb = new basic_block;
         bb->used_by = new slice;
@@ -62,9 +47,55 @@ class GenIR : public Visitor {
         bb->insts->len = 0;
         // helper 指针指向当前所在的基本块
         tr->bb_cur = bb;
-        // 访问基本块下的指令，指令将在处理过程中逐渐push到bb的buffer中
+
+        // 将该基本块添加到所在的函数中
+        func->bbs->buffer.push_back(bb);
+        func->bbs->len ++;
+        func->bbs->kind = RISK_BASIC_BLOCK;
+
+        BlockTreeNode *root = new BlockTreeNode;
+        root->father_block = root;
+        root->block = NULL;
+        
+        bt.root = root;
+        bt.current = root;
+        
+        // 递归处理block语句块
+        FuncDef->block->accept(this);
+
+        // 回收内存
+        delete root;
+        root = NULL;
+        
+        return func;
+    }
+    void *visit(FuncTypeAST *FuncType) {
+        // 新建一个函数返回值类型的指针
+        type_kind *ret_type = new type_kind;
+        ret_type->tag = KOOPA_TYPE_INT32;
+        return ret_type;
+    }
+    void *visit(BlockAST *Block) {
+        if (Block->blockitems == NULL) {
+            return NULL;
+        }
+        // 创建一个新的BlockTreeNode
+        BlockTreeNode *block = new BlockTreeNode;
+        block->father_block = bt.root;
+        if (bt.current != bt.root) {
+            block->symtable = bt.current->symtable;
+            block->father_block = bt.current;
+        }
+        bt.current = block;
+        // 访问语句块下的指令，指令将在处理过程中逐渐push到bb的buffer中
         Block->blockitems->accept(this);
-        return bb;
+        // 该语句块处理完毕，回归到父语句块
+        bt.current = bt.current->father_block;
+        // 该语句块已经处理完毕，回收内存
+        block->symtable.clear();
+        delete block;
+        block = NULL;
+        return NULL;
     }
     void *visit(BlockItemsAST *BlockItems) {
         for (size_t i = 0; i < BlockItems->blockitems.size(); i ++ ) {
@@ -109,10 +140,16 @@ class GenIR : public Visitor {
         int val = ConstDef->constinitval->get_value();
         // symtable[ConstDef->ident] = {"i32", val, CON, true};
         if (tr->ty_cur.tag == KOOPA_TYPE_INT32) {
-            symtable[ConstDef->ident].ty = "i32";
-            symtable[ConstDef->ident].value = val;
-            symtable[ConstDef->ident].kind = CON;
-            symtable[ConstDef->ident].has_value = true;
+            bt.current->symtable[ConstDef->ident].ty = "i32";
+            bt.current->symtable[ConstDef->ident].value = val;
+            bt.current->symtable[ConstDef->ident].kind = CON;
+            bt.current->symtable[ConstDef->ident].has_value = true;
+            if (bt.current->symtable.count(ConstDef->ident)) {
+                bt.current->symtable[ConstDef->ident].use_num ++;
+            }
+            else {
+                bt.current->symtable[ConstDef->ident].use_num = 1;
+            }
         }
         else {
             printf("There is an exception in visit of ConstDef!\n");
@@ -139,7 +176,19 @@ class GenIR : public Visitor {
     void *visit(VarDefAST *VarDef) {
         if (VarDef->type == VarDefAST::NO_VALUE) {
             if (tr->ty_cur.tag == KOOPA_TYPE_INT32) {
-                // 首先插入一个alloc指令，将变量分配出来
+                // 首先将变量插入到符号表中
+                bt.current->symtable[VarDef->ident].ty = "i32";
+                bt.current->symtable[VarDef->ident].value = 0;
+                bt.current->symtable[VarDef->ident].kind = VAR;
+                bt.current->symtable[VarDef->ident].has_value = false;
+                if (bt.current->symtable.count(VarDef->ident)) {
+                    bt.current->symtable[VarDef->ident].use_num ++;
+                }
+                else {
+                    bt.current->symtable[VarDef->ident].use_num = 1;
+                }
+
+                // 插入一个alloc指令，将变量分配出来
                 value_ptr val_dest = tr->NewValue();
                 val_dest->kind.tag = IR_ALLOC;
                 if (tr->ty_cur.tag == KOOPA_TYPE_INT32) val_dest->kind.data.alloc.ty.tag = KOOPA_TYPE_INT32;
@@ -148,7 +197,7 @@ class GenIR : public Visitor {
                     assert(false);
                 }
 
-                std::string str = "@" + VarDef->ident;
+                std::string str = "@" + VarDef->ident + "_" + std::to_string(bt.current->symtable[VarDef->ident].use_num);
                 val_dest->kind.data.alloc.name = new char;
                 for (size_t i = 0; i < str.size(); i ++ ) {
                     val_dest->kind.data.alloc.name[i] = str[i];
@@ -157,11 +206,7 @@ class GenIR : public Visitor {
                 // val_dest->kind.data.alloc.name = "@" + VarDef->ident;
                 tr->AddValue(val_dest);
 
-                symtable[VarDef->ident].ty = "i32";
-                symtable[VarDef->ident].value = 0;
-                symtable[VarDef->ident].kind = VAR;
-                symtable[VarDef->ident].has_value = false;
-                symtable[VarDef->ident].val_p = (void*)val_dest;
+                bt.current->symtable[VarDef->ident].val_p = (void*)val_dest;
             }
             else {
                 printf("There is an exception in visit of VarDef!\n");
@@ -170,6 +215,18 @@ class GenIR : public Visitor {
         }
         else if (VarDef->type == VarDefAST::HAS_VALUE) {
             if (tr->ty_cur.tag == KOOPA_TYPE_INT32) {
+                // 首先将变量添加到符号表中
+                bt.current->symtable[VarDef->ident].ty = "i32";
+                bt.current->symtable[VarDef->ident].value = 0;
+                bt.current->symtable[VarDef->ident].kind = VAR;
+                bt.current->symtable[VarDef->ident].has_value = true;
+                if (bt.current->symtable.count(VarDef->ident)) {
+                    bt.current->symtable[VarDef->ident].use_num ++;
+                }
+                else {
+                    bt.current->symtable[VarDef->ident].use_num = 1;
+                }
+
 
                 // 首先插入一个alloc指令，将变量分配出来
                 value_ptr val_dest = tr->NewValue();
@@ -180,7 +237,7 @@ class GenIR : public Visitor {
                     assert(false);
                 }
 
-                std::string str = "@" + VarDef->ident;
+                std::string str = "@" + VarDef->ident + "_" + std::to_string(bt.current->symtable[VarDef->ident].use_num);
                 val_dest->kind.data.alloc.name = new char;
                 for (size_t i = 0; i < str.size(); i ++ ) {
                     val_dest->kind.data.alloc.name[i] = str[i];
@@ -191,11 +248,8 @@ class GenIR : public Visitor {
                 tr->AddValue(val_dest);
 
                 // 将变量添加到符号表中
-                symtable[VarDef->ident].ty = "i32";
-                symtable[VarDef->ident].value = 0;
-                symtable[VarDef->ident].kind = VAR;
-                symtable[VarDef->ident].has_value = true;
-                symtable[VarDef->ident].val_p = (void*)val_dest;
+                
+                bt.current->symtable[VarDef->ident].val_p = (void*)val_dest;
 
                 // 然后计算该变量的值
                 
@@ -231,17 +285,28 @@ class GenIR : public Visitor {
             // 目前只处理return指令
             val->kind.tag = IR_RETURN;
 
-            value_ptr val_ret = (value_ptr)Stmt->exp->accept(this);
-            val->kind.data.ret.value = val_ret;
+            if (Stmt->exp != NULL) {
+                value_ptr val_ret = (value_ptr)Stmt->exp->accept(this);
+                val->kind.data.ret.value = val_ret;
+            }
+            else {
+                val->kind.data.ret.value = NULL;
+            }
             // 将该指令添加到当前基本块中
             tr->AddValue(val);
         }
         else if (Stmt->type == StmtAST::ASSIGN) {
             val->kind.tag = IR_STORE;
             val->kind.data.store.value = (value_ptr)Stmt->exp->accept(this);
-            val->kind.data.store.dest = (value_ptr)symtable[Stmt->lval].val_p;
-            symtable[Stmt->lval].has_value = true;
+            val->kind.data.store.dest = (value_ptr)bt.current->symtable[Stmt->lval].val_p;
+            bt.current->symtable[Stmt->lval].has_value = true;
             tr->AddValue(val);
+        }
+        else if (Stmt->type == StmtAST::BLOCK) {
+            Stmt->block->accept(this);
+        }
+        else if (Stmt->type == StmtAST::VOID) {
+            return NULL;
         }
 
         return val;
@@ -262,16 +327,16 @@ class GenIR : public Visitor {
             return val;
         }
         else if (PrimaryExp->type == PrimaryExpAST::LVAL) {
-            if (symtable[PrimaryExp->lval].kind == CON) {
+            if (bt.current->symtable[PrimaryExp->lval].kind == CON) {
                 value_ptr val = new value;
                 val->kind.tag = IR_INTEGER;
-                val->kind.data.integer.value = symtable[PrimaryExp->lval].value;
+                val->kind.data.integer.value = bt.current->symtable[PrimaryExp->lval].value;
                 return val;
             }
-            else if (symtable[PrimaryExp->lval].kind == VAR) {
+            else if (bt.current->symtable[PrimaryExp->lval].kind == VAR) {
                 value_ptr val = tr->NewValue();
                 val->kind.tag = IR_LOAD;
-                val->kind.data.load.src = (value_ptr)symtable[PrimaryExp->lval].val_p;
+                val->kind.data.load.src = (value_ptr)bt.current->symtable[PrimaryExp->lval].val_p;
                 tr->AddValue(val);
                 
                 return val;

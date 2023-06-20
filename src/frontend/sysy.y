@@ -99,6 +99,7 @@ Block
   }
   | '{' '}' {
     auto ast = new BlockAST();
+    ast->blockitems = NULL;
     $$ = ast;
   }
   ;
@@ -245,11 +246,36 @@ Stmt
     ast->exp = unique_ptr<BaseAST>($2);
     $$ = ast;
   }
+  | RETURN ';' {
+    auto ast = new StmtAST();
+    ast->type = StmtAST::RETURN;
+    ast->ret = "return";
+    ast->exp = NULL;
+    $$ = ast;
+  }
   | LVal '=' Exp ';' {
     auto ast = new StmtAST();
     ast->type = StmtAST::ASSIGN;
     ast->lval = *unique_ptr<string>($1);
     ast->exp = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  | Exp ';' {
+    auto ast = new StmtAST();
+    ast->type = StmtAST::VOID;
+    ast->exp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | ';' {
+    auto ast = new StmtAST();
+    ast->type = StmtAST::VOID;
+    ast->exp = NULL;
+    $$ = ast;
+  }
+  | Block {
+    auto ast = new StmtAST();
+    ast->type = StmtAST::BLOCK;
+    ast->block = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
   ;
