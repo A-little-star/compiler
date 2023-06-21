@@ -337,20 +337,36 @@ class ClosedStmtAST : public BaseAST {
 
 class NonIfStmtAST : public BaseAST {
     public:
+        enum {STMT, BLOCK, WHILE, FOR} type;
+        std::unique_ptr<BaseAST> lessstmt;
+        std::unique_ptr<BaseAST> block;
+        std::unique_ptr<BaseAST> exp;
+        std::unique_ptr<BaseAST> stmt;
+        std::unique_ptr<BaseAST> blockitem;
+
+        void Dump() const override {
+
+        }
+        void *accept(Visitor *v) override {
+            return v->visit(this);
+        }
+};
+
+class LessStmtAST : public BaseAST {
+    public:
         /*
         指令类型：
         assign 表示赋值指令
         return 表示return指令
         void 表示空语句（即只有表达式，没有进行赋值，包括";"）
-        block 表示语句块
-        while 表示while语句
         */
-        enum {ASSIGN, RETURN, VOID, BLOCK, WHILE} type;
+        enum {ASSIGN, RETURN, VOID, BREAK, CONTINUE} type;
         std::string lval;
         std::string ret;
         std::unique_ptr<BaseAST> exp;
-        std::unique_ptr<BaseAST> block;
         std::unique_ptr<BaseAST> stmt;
+        std::unique_ptr<BaseAST> stmt_end;
+        std::unique_ptr<BaseAST> blockitem;
 
         void Dump() const override {
             std::cout << "NonIfStmt {\n";
@@ -362,16 +378,6 @@ class NonIfStmtAST : public BaseAST {
             else if (type == ASSIGN) {
                 std::cout << lval;
                 exp->Dump();
-                std::cout << "}\n";
-            }
-            else if (type == BLOCK) {
-                block->Dump();
-                std::cout << "}\n";
-            }
-            else if (type == WHILE) {
-                std::cout << "while ";
-                exp->Dump();
-                stmt->Dump();
                 std::cout << "}\n";
             }
         }

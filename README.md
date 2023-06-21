@@ -35,10 +35,15 @@ OpenStmt      ::= IF "(" Exp ")" Stmt
                 | IF "(" Exp ")" ClosedStmt ELSE OpenStmt
 ClosedStmt    ::= NonIfStmt
                 | IF "(" Exp ")" ClosedStmt ElSE ClosedStmt
-NonIfStmt     ::= LVal "=" Exp ";"
-                | [Exp] ";"
+NonIfStmt     ::= LessStmt ";"
                 | Block
-                | "return" [Exp] ";";
+                | "while" "(" Exp ")" Stmt
+                | "for" "(" BlockItem ";" Exp ";" LessStmt ")" Stmt; 
+LessStmt     ::= LVal "=" Exp
+                | [Exp]
+                | "return" [Exp]
+                | "break"
+                | "continue";
 
 Exp           ::= LOrExp;
 LVal          ::= IDENT;

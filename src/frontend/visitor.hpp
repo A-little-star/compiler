@@ -30,6 +30,7 @@ class StmtAST;
 class OpenStmtAST;
 class ClosedStmtAST;
 class NonIfStmtAST;
+class LessStmtAST;
 
 // 表达式类型
 class ExpAST;
@@ -154,6 +155,7 @@ class Visitor {
         virtual void *visit(OpenStmtAST *) { return NULL; }
         virtual void *visit(ClosedStmtAST *) { return NULL; }
         virtual void *visit(NonIfStmtAST *) { return NULL; }
+        virtual void *visit(LessStmtAST *) { return NULL; }
         virtual void *visit(ConstExpAST *) { return NULL; }
         virtual void *visit(ExpAST *) { return NULL; }
         virtual void *visit(PrimaryExpAST *) { return NULL; }

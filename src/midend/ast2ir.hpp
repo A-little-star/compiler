@@ -4,6 +4,7 @@
 #include "xc.hpp"
 #include "../frontend/AST.hpp"
 #include "SymTable.hpp"
+#include "loop.hpp"
 // #include "visitor.hpp"
 
 class Visitor;
@@ -54,19 +55,31 @@ class GenIR : public Visitor {
         // 将该基本块添加到所在的函数中
         tr->AddBasicBlock(bb);
 
-        BlockTreeNode *root = new BlockTreeNode;
-        root->father_block = root;
-        root->block = NULL;
+        // 创建语句块树的根节点
+        BlockTreeNode *root_bt = new BlockTreeNode;
+        root_bt->father_block = root_bt;
+        root_bt->block = NULL;
         
-        bt.root = root;
-        bt.current = root;
+        bt.root = root_bt;
+        bt.current = root_bt;
+
+        // 创建循环树的根节点
+        LoopTreeNode *root_lt = new LoopTreeNode;
+        root_lt->father_loop = root_lt;
+        root_lt->loop_body = NULL;
+        root_lt->loop_entry = NULL;
+        root_lt->loop_end = NULL;
+        lt.root = root_lt;
+        lt.current = root_lt;
         
         // 递归处理block语句块
         FuncDef->block->accept(this);
 
         // 回收内存
-        delete root;
-        root = NULL;
+        delete root_bt;
+        root_bt = NULL;
+        delete root_lt;
+        root_lt = NULL;
         
         return func;
     }
@@ -82,7 +95,7 @@ class GenIR : public Visitor {
         }
         // 创建一个新的BlockTreeNode
         BlockTreeNode *block = new BlockTreeNode;
-        block->father_block = bt.root;
+        block->father_block = bt.current;
         if (bt.current != bt.root) {
             block->symtable = bt.current->symtable;
             block->father_block = bt.current;
@@ -393,12 +406,161 @@ class GenIR : public Visitor {
         // 创建一个新的value类型（这里表示指令），并为其成员变量分配空间
         value_ptr val = tr->NewValue();
         
-        if (NonIfStmt->type == NonIfStmtAST::RETURN) {
+        if (NonIfStmt->type == NonIfStmtAST::STMT) {
+            delete val;
+            val = (value_ptr)NonIfStmt->lessstmt->accept(this);
+        }
+        else if (NonIfStmt->type == NonIfStmtAST::BLOCK) {
+            NonIfStmt->block->accept(this);
+        }
+        else if (NonIfStmt->type == NonIfStmtAST::WHILE) {
+            // 创建一个新的循环结点
+            LoopTreeNode *ltn = new LoopTreeNode;
+            ltn->father_loop = lt.current;
+            lt.current = ltn;
+
+            // 创建一个新的jump指令，跳转向循环体
+            value_ptr val_j1 = tr->NewValue();
+            tr->AddValue(val_j1);
+            val_j1->kind.tag = IR_JUMP;
+
+            // 创建三个基本块，分别作为循环条件、循环体、循环出口
+            basic_block_ptr while_entry = tr->NewBasicBlock();
+            while_entry->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+            tr->AddBasicBlock(while_entry);
+            basic_block_ptr while_body = tr->NewBasicBlock();
+            while_body->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+            tr->AddBasicBlock(while_body);
+            basic_block_ptr end = tr->NewBasicBlock();
+            end->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+            tr->AddBasicBlock(end);
+
+            val_j1->kind.data.jump.target = while_entry;
+
+            ltn->loop_entry = while_entry;
+            ltn->loop_body = while_body;
+            ltn->loop_end = end;
+
+            // 处理循环条件判断部分
+            tr->bb_cur = while_entry;
+
+            // 在while_entry的末尾添加br指令
+            value_ptr val_br = tr->NewValue();
+            val_br->kind.tag = IR_BRANCH;
+            val_br->kind.data.branch.cond = (value_ptr)NonIfStmt->exp->accept(this);
+            tr->AddValue(val_br);
+
+            // 处理循环体部分
+            tr->bb_cur = while_body;
+            val_br->kind.data.branch.true_bb = while_body;
+
+            NonIfStmt->stmt->accept(this);
+            // 在循环体的末尾添加Jump指令
+            value_ptr val_j2 = tr->NewValue();
+            tr->AddValue(val_j2);
+            val_j2->kind.tag = IR_JUMP;
+            val_j2->kind.data.jump.target = while_entry;
+
+            tr->bb_cur = end;
+            val_br->kind.data.branch.false_bb = end;
+
+            // 该循环已经处理完毕，当前循环退出到父循环
+            lt.current = ltn->father_loop;
+            delete ltn;
+            ltn = NULL;
+        }
+        else if (NonIfStmt->type == NonIfStmtAST::FOR) {
+            // 创建一个新的循环结点
+            LoopTreeNode *ltn = new LoopTreeNode;
+            ltn->father_loop = lt.current;
+            lt.current = ltn;
+
+            
+
+            BlockTreeNode *btn = new BlockTreeNode;
+            btn->father_block = bt.current;
+            if (bt.current != bt.root) {
+                btn->symtable = bt.current->symtable;
+                btn->father_block = bt.current;
+            }
+            bt.current = btn;
+
+            NonIfStmt->blockitem->accept(this);
+
+            
+
+            // 创建一个新的jump指令，跳转向循环条件判断部分
+            value_ptr val_j1 = tr->NewValue();
+            tr->AddValue(val_j1);
+            val_j1->kind.tag = IR_JUMP;
+
+            // 创建三个基本块，分别作为循环条件、循环体、循环出口
+            basic_block_ptr while_entry = tr->NewBasicBlock();
+            while_entry->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+            tr->AddBasicBlock(while_entry);
+            basic_block_ptr while_body = tr->NewBasicBlock();
+            while_body->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+            tr->AddBasicBlock(while_body);
+            basic_block_ptr end = tr->NewBasicBlock();
+            end->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+            tr->AddBasicBlock(end);
+
+            val_j1->kind.data.jump.target = while_entry;
+
+            ltn->loop_entry = while_entry;
+            ltn->loop_body = while_body;
+            ltn->loop_end = end;
+
+            // 处理循环条件判断部分
+            tr->bb_cur = while_entry;
+
+            // 在while_entry的末尾添加br指令
+            value_ptr val_br = tr->NewValue();
+            val_br->kind.tag = IR_BRANCH;
+            val_br->kind.data.branch.cond = (value_ptr)NonIfStmt->exp->accept(this);
+            tr->AddValue(val_br);
+            
+            // 处理循环体部分
+            tr->bb_cur = while_body;
+            val_br->kind.data.branch.true_bb = while_body;
+
+            NonIfStmt->stmt->accept(this);
+            NonIfStmt->lessstmt->accept(this);
+            // 在循环体的末尾添加Jump指令
+            value_ptr val_j2 = tr->NewValue();
+            tr->AddValue(val_j2);
+            val_j2->kind.tag = IR_JUMP;
+            val_j2->kind.data.jump.target = while_entry;
+
+            tr->bb_cur = end;
+            val_br->kind.data.branch.false_bb = end;
+
+            bt.current = btn->father_block;
+            btn->symtable.clear();
+            delete btn;
+            btn = NULL;
+            // 该循环已经处理完毕，当前循环退出到父循环
+            lt.current = ltn->father_loop;
+            delete ltn;
+            ltn = NULL;
+        }
+
+        return val;
+    }
+    void *visit(LessStmtAST *LessStmt) {
+        value_ptr val = tr->NewValue();
+        if (LessStmt->type == LessStmtAST::RETURN) {
             // 目前只处理return指令
             val->kind.tag = IR_RETURN;
 
-            if (NonIfStmt->exp != NULL) {
-                value_ptr val_ret = (value_ptr)NonIfStmt->exp->accept(this);
+            if (LessStmt->exp != NULL) {
+                value_ptr val_ret = (value_ptr)LessStmt->exp->accept(this);
                 val->kind.data.ret.value = val_ret;
             }
             else {
@@ -407,59 +569,36 @@ class GenIR : public Visitor {
             // 将该指令添加到当前基本块中
             tr->AddValue(val);
         }
-        else if (NonIfStmt->type == NonIfStmtAST::ASSIGN) {
+        else if (LessStmt->type == LessStmtAST::ASSIGN) {
             val->kind.tag = IR_STORE;
-            val->kind.data.store.value = (value_ptr)NonIfStmt->exp->accept(this);
-            val->kind.data.store.dest = (value_ptr)bt.current->symtable[NonIfStmt->lval].val_p;
-            bt.current->symtable[NonIfStmt->lval].has_value = true;
+            val->kind.data.store.value = (value_ptr)LessStmt->exp->accept(this);
+            val->kind.data.store.dest = (value_ptr)bt.current->symtable[LessStmt->lval].val_p;
+            bt.current->symtable[LessStmt->lval].has_value = true;
             tr->AddValue(val);
         }
-        else if (NonIfStmt->type == NonIfStmtAST::BLOCK) {
-            NonIfStmt->block->accept(this);
-        }
-        else if (NonIfStmt->type == NonIfStmtAST::VOID) {
+        else if (LessStmt->type == LessStmtAST::VOID) {
             return NULL;
         }
-        else if (NonIfStmt->type == NonIfStmtAST::WHILE) {
-            value_ptr val_j1 = tr->NewValue();
-            tr->AddValue(val_j1);
-            val_j1->kind.tag = IR_JUMP;
-
-            basic_block_ptr while_entry = tr->NewBasicBlock();
-            tr->AddBasicBlock(while_entry);
-            tr->bb_cur = while_entry;
-            while_entry->name = "%b" + std::to_string(bb_id);
-            bb_id ++;
-            val_j1->kind.data.jump.target = while_entry;
-
-
-            value_ptr val_br = tr->NewValue();
-            val_br->kind.tag = IR_BRANCH;
-            val_br->kind.data.branch.cond = (value_ptr)NonIfStmt->exp->accept(this);
-            tr->AddValue(val_br);
-
-            basic_block_ptr while_body = tr->NewBasicBlock();
-            tr->AddBasicBlock(while_body);
-            tr->bb_cur = while_body;
-            while_body->name = "%b" + std::to_string(bb_id);
-            bb_id ++;
-            val_br->kind.data.branch.true_bb = while_body;
-
-            NonIfStmt->stmt->accept(this);
-
-            value_ptr val_j2 = tr->NewValue();
-            tr->AddValue(val_j2);
-            val_j2->kind.tag = IR_JUMP;
-            val_j2->kind.data.jump.target = while_entry;
-
-            basic_block_ptr end = tr->NewBasicBlock();
-            tr->AddBasicBlock(end);
-            tr->bb_cur = end;
-            end->name = "%b" + std::to_string(bb_id);
-            bb_id ++;
-            val_br->kind.data.branch.false_bb = end;
+        else if (LessStmt->type == LessStmtAST::BREAK) {
+            if (lt.current == lt.root) {
+                printf("error:'break' statement is mistakenly used outside the loop structure.\n");
+                assert(false);
+            }
+            value_ptr val = tr->NewValue();
+            val->kind.tag = IR_JUMP;
+            val->kind.data.jump.target = lt.current->loop_end;
+            tr->AddValue(val);
         }
-
+        else if (LessStmt->type == LessStmtAST::CONTINUE) {
+            if (lt.current == lt.root) {
+                printf("error:'continue' statement is mistakenly used outside the loop structrue.\n");
+                assert(false);
+            }
+            value_ptr val = tr->NewValue();
+            val->kind.tag = IR_JUMP;
+            val->kind.data.jump.target = lt.current->loop_entry;
+            tr->AddValue(val);
+        }
         return val;
     }
     void *visit(ExpAST *Exp) {

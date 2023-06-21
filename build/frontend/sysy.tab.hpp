@@ -63,14 +63,17 @@ extern int yydebug;
     IF = 261,
     ELSE = 262,
     WHILE = 263,
-    IDENT = 264,
-    LTOP = 265,
-    GTOP = 266,
-    EQOP = 267,
-    NEQOP = 268,
-    ANDOP = 269,
-    OROP = 270,
-    INT_CONST = 271
+    BREAK = 264,
+    CONTINUE = 265,
+    FOR = 266,
+    IDENT = 267,
+    LTOP = 268,
+    GTOP = 269,
+    EQOP = 270,
+    NEQOP = 271,
+    ANDOP = 272,
+    OROP = 273,
+    INT_CONST = 274
   };
 #endif
 
@@ -84,7 +87,7 @@ union YYSTYPE
   int int_val;
   BaseAST *ast_val;
 
-#line 88 "/root/compiler/build/frontend/sysy.tab.hpp"
+#line 91 "/root/compiler/build/frontend/sysy.tab.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;
