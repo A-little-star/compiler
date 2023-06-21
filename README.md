@@ -28,10 +28,16 @@ FuncType      ::= "int";
 
 Block         ::= "{" {BlockItem} "}";
 BlockItem     ::= Decl | Stmt;
-Stmt          ::= LVal "=" Exp ";"
+
+Stmt          ::= OpenStmt
+                | ClosedStmt
+OpenStmt      ::= IF "(" Exp ")" Stmt
+                | IF "(" Exp ")" ClosedStmt ELSE OpenStmt
+ClosedStmt    ::= NonIfStmt
+                | IF "(" Exp ")" ClosedStmt ElSE ClosedStmt
+NonIfStmt     ::= LVal "=" Exp ";"
                 | [Exp] ";"
                 | Block
-                | "if" "(" Exp ")" Stmt ["else" Stmt]
                 | "return" [Exp] ";";
 
 Exp           ::= LOrExp;
@@ -48,7 +54,7 @@ LAndExp       ::= EqExp | LAndExp "&&" EqExp;
 LOrExp        ::= LAndExp | LOrExp "||" LAndExp;
 ConstExp      ::= Exp;
 
-```enbf
+```
 
 ## IR
 生成抽象语法树AST之后，编译器会遍历AST，生成数据结构形式的Koopa IR，生成的过程写在midend/ast2ir.cpp中。

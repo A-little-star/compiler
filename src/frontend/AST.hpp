@@ -257,24 +257,123 @@ class InitValAST : public BaseAST {
 
 class StmtAST : public BaseAST {
     public:
+        enum {OPENSTMT, CLOSEDSTMT} type;
+        std::unique_ptr<BaseAST> openstmt;
+        std::unique_ptr<BaseAST> closedstmt;
+
+        void Dump() const override {
+            std::cout << "Stmt :{\n";
+            if (type == OPENSTMT) openstmt->Dump();
+            else if (type == CLOSEDSTMT) closedstmt->Dump();
+            std::cout << "}\n";
+        }
+        void *accept(Visitor *v) override {
+            return v->visit(this);
+        }
+};
+
+class OpenStmtAST : public BaseAST {
+    public:
+        enum {IF, IF_ELSE} type;
+        std::unique_ptr<BaseAST> exp;
+        std::unique_ptr<BaseAST> stmt;
+        std::unique_ptr<BaseAST> closedstmt;
+        std::unique_ptr<BaseAST> openstmt;
+
+        void Dump() const override {
+            std::cout << "OpenStmt: {\n";
+            if (type == IF) {
+                std::cout << "if {\n";
+                exp->Dump();
+                std::cout << "}\n{";
+                stmt->Dump();
+                std::cout << "}\n";
+            }
+            else if (type == IF_ELSE) {
+                std::cout << "if {\n";
+                exp->Dump();
+                std::cout << "}\n{";
+                closedstmt->Dump();
+                std::cout << "}\nelse {";
+                openstmt->Dump();
+                std::cout << "}\n";
+            }
+            std::cout << "}\n";
+        }
+
+        void *accept(Visitor *v) override {
+            return v->visit(this);
+        }
+};
+
+class ClosedStmtAST : public BaseAST {
+    public:
+        enum {NONIF, IF_ELSE} type;
+        std::unique_ptr<BaseAST> nonifstmt;
+        std::unique_ptr<BaseAST> exp;
+        std::unique_ptr<BaseAST> closedstmt_if;
+        std::unique_ptr<BaseAST> closedstmt_else;
+
+        void Dump() const override {
+            std::cout << "ClosedStmt: {\n";
+            if (type == NONIF) {
+                nonifstmt->Dump();
+            }
+            else {
+                std::cout << "if {\n";
+                exp->Dump();
+                std::cout << "}\n{";
+                closedstmt_if->Dump();
+                std::cout << "}\nelse {";
+                closedstmt_else->Dump();
+                std::cout << "}\n";
+            }
+            std::cout << "}\n";
+        }
+        void *accept(Visitor *v) override {
+            return v->visit(this);
+        }
+};
+
+class NonIfStmtAST : public BaseAST {
+    public:
         /*
         指令类型：
         assign 表示赋值指令
         return 表示return指令
         void 表示空语句（即只有表达式，没有进行赋值，包括";"）
         block 表示语句块
+        while 表示while语句
         */
-        enum {ASSIGN, RETURN, VOID, BLOCK} type;
+        enum {ASSIGN, RETURN, VOID, BLOCK, WHILE} type;
         std::string lval;
         std::string ret;
         std::unique_ptr<BaseAST> exp;
         std::unique_ptr<BaseAST> block;
+        std::unique_ptr<BaseAST> stmt;
 
         void Dump() const override {
-            std::cout << "Stmt {\n";
-            std::cout << "ret ";
-            exp->Dump();
-            std::cout << "}\n";
+            std::cout << "NonIfStmt {\n";
+            if (type == RETURN) {
+                std::cout << "ret ";
+                if (exp != NULL) exp->Dump();
+                std::cout << "}\n";
+            }
+            else if (type == ASSIGN) {
+                std::cout << lval;
+                exp->Dump();
+                std::cout << "}\n";
+            }
+            else if (type == BLOCK) {
+                block->Dump();
+                std::cout << "}\n";
+            }
+            else if (type == WHILE) {
+                std::cout << "while ";
+                exp->Dump();
+                stmt->Dump();
+                std::cout << "}\n";
+            }
         }
 
         void *accept(Visitor *v) override {

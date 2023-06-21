@@ -65,13 +65,19 @@ void GenRisc(const slice_ptr slice, std::ostream &os) {
 }
 
 void GenRisc(const func_ptr func, std::ostream &os) {
-    os << "  .globl main\nmain:\n";
+    os << "  .globl main\n";
     offset = CalStackMem(func);
-    os << "  addi sp, sp, " << std::to_string(-offset) << std::endl;
     GenRisc(func->bbs, os);
 }
 
 void GenRisc(const basic_block_ptr bb, std::ostream &os) {
+    if (bb->name == "%entry") {
+        os << "main:\n";
+        os << "  addi sp, sp, " << std::to_string(-offset) << std::endl;
+    }
+    else {
+        os << bb->name.substr(1) << ":\n";
+    }
     GenRisc(bb->insts, os);
 }
 
@@ -102,6 +108,24 @@ void GenRisc(const value_ptr val, std::ostream &os) {
                 assert(false);
             }
             os << "  sw t0, " << std::to_string(off_map[kind.data.store.dest]) << "(sp)" << std::endl;
+            break;
+        }
+        case IR_BRANCH:
+        {
+            switch (kind.data.branch.cond->kind.tag) {
+                case IR_INTEGER: os << "  li t0, " << std::to_string(kind.data.branch.cond->kind.data.integer.value) << std::endl; break;
+                case IR_BINARY:
+                case IR_LOAD: os << "  lw t0, " << std::to_string(off_map[kind.data.branch.cond]) << "(sp)" << std::endl; break;
+                default: break;
+            }
+            
+            os << "  bnez t0, " << kind.data.branch.true_bb->name.substr(1) << std::endl;
+            os << "  j " << kind.data.branch.false_bb->name.substr(1) << std::endl;
+            break;
+        }
+        case IR_JUMP:
+        {
+            os << "  j " << kind.data.jump.target->name.substr(1) << std::endl;
             break;
         }
         case IR_RETURN:

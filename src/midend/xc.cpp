@@ -31,7 +31,6 @@ void GenCode(const prog_ptr prog, std::ostream &os) {
 }
 
 void GenCode(const slice_ptr slice, std::ostream &os) {
-    // printf("%d\n", slice->len);
     for (size_t i = 0; i < slice->len; i ++ ) {
         auto ptr = slice->buffer[i];
         switch (slice->kind) {
@@ -52,13 +51,12 @@ void GenCode(const slice_ptr slice, std::ostream &os) {
 
 void GenCode(const func_ptr func, std::ostream &os) {
     os << "fun @" << func->name << "(): i32 {\n";
-    // printf("Here is OK!\n");
     GenCode(func->bbs, os);
     os << "}\n";
 }
 
 void GenCode(const basic_block_ptr bb, std::ostream &os) {
-    os << "%entry:\n";
+    os << bb->name << ":\n";
     GenCode(bb->insts, os);
 }
 
@@ -93,6 +91,25 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 os << "%" << std::to_string(val_map[kind.data.store.value]) << ", ";
             }
             os << kind.data.store.dest->kind.data.alloc.name << std::endl;
+            break;
+        }
+        case IR_BRANCH:
+        {
+            
+            os << "  br ";
+            switch (kind.data.branch.cond->kind.tag) {
+                case IR_INTEGER: os << std::to_string(kind.data.branch.cond->kind.data.integer.value); break;
+                case IR_BINARY:
+                case IR_LOAD: os << "%" << std::to_string(val_map[kind.data.branch.cond]); break;
+                default: break;
+            }
+            os << ", " << kind.data.branch.true_bb->name << ", " << kind.data.branch.false_bb->name << std::endl;
+            
+            break;
+        }
+        case IR_JUMP:
+        {
+            os << "  jump " << kind.data.jump.target->name << std::endl;
             break;
         }
         case IR_RETURN:

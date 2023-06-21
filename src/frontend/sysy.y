@@ -37,12 +37,12 @@ using namespace std;
 
 // lexer 返回的所有 token 种类的声明
 // 注意 IDENT 和 INT_CONST 会返回 token 的值, 分别对应 str_val 和 int_val
-%token INT RETURN CONST
+%token INT RETURN CONST IF ELSE WHILE
 %token <str_val> IDENT LTOP GTOP EQOP NEQOP ANDOP OROP
 %token <int_val> INT_CONST
 
 // 非终结符的类型定义
-%type <ast_val> FuncDef FuncType Block Stmt Exp PrimaryExp UnaryExp MulExp AddExp RelExp EqExp LAndExp LOrExp BlockItems BlockItem Decl ConstDecl ConstDefs ConstDef ConstInitVal ConstExp
+%type <ast_val> FuncDef FuncType Block Stmt OpenStmt ClosedStmt NonIfStmt Exp PrimaryExp UnaryExp MulExp AddExp RelExp EqExp LAndExp LOrExp BlockItems BlockItem Decl ConstDecl ConstDefs ConstDef ConstInitVal ConstExp
 %type <ast_val> VarDecl VarDefs VarDef InitVal
 %type <str_val> UnaryOp RelOp EqOp LAndOp LOrOp BType LVal
 %type <int_val> Number
@@ -239,43 +239,100 @@ InitVal
   ;
 
 Stmt
-  : RETURN Exp ';' {
+  : OpenStmt {
     auto ast = new StmtAST();
-    ast->type = StmtAST::RETURN;
+    ast->type = StmtAST::OPENSTMT;
+    ast->openstmt = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | ClosedStmt {
+    auto ast = new StmtAST();
+    ast->type = StmtAST::CLOSEDSTMT;
+    ast->closedstmt = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  ;
+
+OpenStmt
+  : IF '(' Exp ')' Stmt {
+    auto ast = new OpenStmtAST();
+    ast->type = OpenStmtAST::IF;
+    ast->exp = unique_ptr<BaseAST>($3);
+    ast->stmt = unique_ptr<BaseAST>($5);
+    $$ = ast;
+  }
+  | IF '(' Exp ')' ClosedStmt ELSE OpenStmt {
+    auto ast = new OpenStmtAST();
+    ast->type = OpenStmtAST::IF_ELSE;
+    ast->exp = unique_ptr<BaseAST>($3);
+    ast->closedstmt = unique_ptr<BaseAST>($5);
+    ast->openstmt = unique_ptr<BaseAST>($7);
+    $$ = ast;
+  }
+  ;
+
+ClosedStmt
+  : NonIfStmt {
+    auto ast = new ClosedStmtAST();
+    ast->type = ClosedStmtAST::NONIF;
+    ast->nonifstmt = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | IF '(' Exp ')' ClosedStmt ELSE ClosedStmt {
+    auto ast = new ClosedStmtAST();
+    ast->type = ClosedStmtAST::IF_ELSE;
+    ast->exp = unique_ptr<BaseAST>($3);
+    ast->closedstmt_if = unique_ptr<BaseAST>($5);
+    ast->closedstmt_else = unique_ptr<BaseAST>($7);
+    $$ = ast;
+  }
+  ;
+
+NonIfStmt
+  : RETURN Exp ';' {
+    auto ast = new NonIfStmtAST();
+    ast->type = NonIfStmtAST::RETURN;
     ast->ret = "return";
     ast->exp = unique_ptr<BaseAST>($2);
     $$ = ast;
   }
   | RETURN ';' {
-    auto ast = new StmtAST();
-    ast->type = StmtAST::RETURN;
+    auto ast = new NonIfStmtAST();
+    ast->type = NonIfStmtAST::RETURN;
     ast->ret = "return";
     ast->exp = NULL;
     $$ = ast;
   }
   | LVal '=' Exp ';' {
-    auto ast = new StmtAST();
-    ast->type = StmtAST::ASSIGN;
+    auto ast = new NonIfStmtAST();
+    ast->type = NonIfStmtAST::ASSIGN;
     ast->lval = *unique_ptr<string>($1);
     ast->exp = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
   | Exp ';' {
-    auto ast = new StmtAST();
-    ast->type = StmtAST::VOID;
+    auto ast = new NonIfStmtAST();
+    ast->type = NonIfStmtAST::VOID;
     ast->exp = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
   | ';' {
-    auto ast = new StmtAST();
-    ast->type = StmtAST::VOID;
+    auto ast = new NonIfStmtAST();
+    ast->type = NonIfStmtAST::VOID;
     ast->exp = NULL;
     $$ = ast;
   }
   | Block {
-    auto ast = new StmtAST();
-    ast->type = StmtAST::BLOCK;
+    auto ast = new NonIfStmtAST();
+    ast->type = NonIfStmtAST::BLOCK;
     ast->block = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | WHILE '(' Exp ')' Stmt {
+    auto ast = new NonIfStmtAST();
+    ast->type = NonIfStmtAST::WHILE;
+    ast->exp = unique_ptr<BaseAST>($3);
+    ast->stmt = unique_ptr<BaseAST>($5);
     $$ = ast;
   }
   ;

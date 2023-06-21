@@ -1,12 +1,18 @@
 fun @main(): i32 {
 %entry:
-  @a_1 = alloc i32
-  store 1, @a_1
-  store 2, @a_1
-  @a_2 = alloc i32
-  store 3, @a_2
-  store 4, @a_2
-  @b_1 = alloc i32
-  store 5, @b_1
-  ret 0
+  @i_1 = alloc i32
+  store 0, @i_1
+  jump %b0
+%b0:
+  %0 = load @i_1
+  %1 = lt %0, 10
+  br %1, %b1, %b2
+%b1:
+  %2 = load @i_1
+  %3 = add %2, 1
+  store %3, @i_1
+  jump %b0
+%b2:
+  %4 = load @i_1
+  ret %4
 }

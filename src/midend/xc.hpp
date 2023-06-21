@@ -131,6 +131,29 @@ typedef struct {
     value_ptr value;
 } store_t;
 
+struct basic_block;
+typedef basic_block *basic_block_ptr;
+
+typedef struct {
+    // Condition.
+    value_ptr cond;
+    // Target if condition is "True".
+    basic_block_ptr true_bb;
+    // Target if condition is "False".
+    basic_block_ptr false_bb;
+    // Arguments of "True" target.
+    slice_ptr true_args;
+    // Arguments of "False" target.
+    slice_ptr false_args;
+} branch_t;
+
+typedef struct {
+    // Target.
+    basic_block_ptr target;
+    // Arguments of target.
+    slice_ptr args;
+} jump_t;
+
 typedef struct {
     value_ptr value;
 } return_t;
@@ -144,6 +167,8 @@ typedef struct {
         load_t load;
         store_t store;
         binary_t binary;
+        branch_t branch;
+        jump_t jump;
         return_t ret;
     } data;
 } inst_kind;
@@ -184,18 +209,17 @@ typedef struct {
 
 typedef function *func_ptr;
 
-typedef struct {
+struct basic_block {
     // Name of basic block, null if no name.
-    char *name;
+    std::string name;
     // Parameters of basic block, will be used in SSA optimistic.
     slice_ptr params;
     // Values that this basic block is used by.（暂时不知道有什么用）
     slice_ptr used_by;
     // Instructions in this basic block.
     slice_ptr insts;
-} basic_block;
+};
 
-typedef basic_block *basic_block_ptr;
 
 void irDS2Text(const prog_ptr prog, std::ostream &os);
 

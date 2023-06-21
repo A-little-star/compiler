@@ -1,5 +1,6 @@
 #include <memory>
 #include <cstring>
+#include <assert.h>
 #include "xc.hpp"
 #include "../frontend/AST.hpp"
 #include "SymTable.hpp"
@@ -7,15 +8,19 @@
 
 class Visitor;
 // extern prog_ptr prog;
+static int bb_id;
+std::unordered_map<StmtAST*, basic_block_ptr> end_map;
+std::unordered_map<std::string, int> rep_map;
 
 class GenIR : public Visitor {
     void *visit(CompUnitAST *CompUnit) {
         // 创建一个新的program类型，并为其成员变量分配内存空间
-        prog_ptr prog = new program;
-        prog->funcs = new slice;
-        prog->funcs->len = 0;
-        prog->values = new slice;
-        prog->values->len = 0;
+        // prog_ptr prog = new program;
+        // prog->funcs = new slice;
+        // prog->funcs->len = 0;
+        // prog->values = new slice;
+        // prog->values->len = 0;
+        prog_ptr prog = tr->NewProgram();
         // 递归调用program下的funcdef
         func_ptr func = (func_ptr)CompUnit->func_def->accept(this);
         // 将该函数添加到program之中
@@ -26,11 +31,14 @@ class GenIR : public Visitor {
     }
     void *visit(FuncDefAST *FuncDef) {
         // 创建一个新的函数类型，并为其成员变量分配空间
-        func_ptr func = new function;
-        func->bbs = new slice;
-        func->bbs->len = 0;
-        func->params = new slice;
-        func->params->len = 0;
+        func_ptr func = tr->NewFuncion();
+        // func_ptr func = new function;
+        // func->bbs = new slice;
+        // func->bbs->len = 0;
+        // func->params = new slice;
+        // func->params->len = 0;
+        // helper 指针指向当前所在的函数
+        tr->func_cur = func;
         
         // 函数名
         func->name = FuncDef->ident;
@@ -38,20 +46,13 @@ class GenIR : public Visitor {
         type_kind *ret_type = (type_kind*)FuncDef->func_type->accept(this);
         func->ty = *ret_type;
         // 创建一个新的Basic block，并为其成员变量分配空间；
-        basic_block_ptr bb = new basic_block;
-        bb->used_by = new slice;
-        bb->used_by->len = 0;
-        bb->params = new slice;
-        bb->params->len = 0;
-        bb->insts = new slice;
-        bb->insts->len = 0;
+        basic_block_ptr bb = tr->NewBasicBlock();
+        bb->name = "%entry";
         // helper 指针指向当前所在的基本块
         tr->bb_cur = bb;
 
         // 将该基本块添加到所在的函数中
-        func->bbs->buffer.push_back(bb);
-        func->bbs->len ++;
-        func->bbs->kind = RISK_BASIC_BLOCK;
+        tr->AddBasicBlock(bb);
 
         BlockTreeNode *root = new BlockTreeNode;
         root->father_block = root;
@@ -144,12 +145,7 @@ class GenIR : public Visitor {
             bt.current->symtable[ConstDef->ident].value = val;
             bt.current->symtable[ConstDef->ident].kind = CON;
             bt.current->symtable[ConstDef->ident].has_value = true;
-            if (bt.current->symtable.count(ConstDef->ident)) {
-                bt.current->symtable[ConstDef->ident].use_num ++;
-            }
-            else {
-                bt.current->symtable[ConstDef->ident].use_num = 1;
-            }
+            rep_map[ConstDef->ident] += 1;
         }
         else {
             printf("There is an exception in visit of ConstDef!\n");
@@ -181,12 +177,7 @@ class GenIR : public Visitor {
                 bt.current->symtable[VarDef->ident].value = 0;
                 bt.current->symtable[VarDef->ident].kind = VAR;
                 bt.current->symtable[VarDef->ident].has_value = false;
-                if (bt.current->symtable.count(VarDef->ident)) {
-                    bt.current->symtable[VarDef->ident].use_num ++;
-                }
-                else {
-                    bt.current->symtable[VarDef->ident].use_num = 1;
-                }
+                rep_map[VarDef->ident] += 1;
 
                 // 插入一个alloc指令，将变量分配出来
                 value_ptr val_dest = tr->NewValue();
@@ -197,7 +188,7 @@ class GenIR : public Visitor {
                     assert(false);
                 }
 
-                std::string str = "@" + VarDef->ident + "_" + std::to_string(bt.current->symtable[VarDef->ident].use_num);
+                std::string str = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
                 val_dest->kind.data.alloc.name = new char;
                 for (size_t i = 0; i < str.size(); i ++ ) {
                     val_dest->kind.data.alloc.name[i] = str[i];
@@ -220,13 +211,7 @@ class GenIR : public Visitor {
                 bt.current->symtable[VarDef->ident].value = 0;
                 bt.current->symtable[VarDef->ident].kind = VAR;
                 bt.current->symtable[VarDef->ident].has_value = true;
-                if (bt.current->symtable.count(VarDef->ident)) {
-                    bt.current->symtable[VarDef->ident].use_num ++;
-                }
-                else {
-                    bt.current->symtable[VarDef->ident].use_num = 1;
-                }
-
+                rep_map[VarDef->ident] += 1;
 
                 // 首先插入一个alloc指令，将变量分配出来
                 value_ptr val_dest = tr->NewValue();
@@ -237,14 +222,12 @@ class GenIR : public Visitor {
                     assert(false);
                 }
 
-                std::string str = "@" + VarDef->ident + "_" + std::to_string(bt.current->symtable[VarDef->ident].use_num);
+                std::string str = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
                 val_dest->kind.data.alloc.name = new char;
                 for (size_t i = 0; i < str.size(); i ++ ) {
                     val_dest->kind.data.alloc.name[i] = str[i];
                 }
                 val_dest->kind.data.alloc.name[str.size()] = '\0';
-                // val_dest->kind.data.alloc.name = const_cast<char*>(str.data());
-                // val_dest->kind.data.alloc.name = str.c_str();
                 tr->AddValue(val_dest);
 
                 // 将变量添加到符号表中
@@ -252,7 +235,6 @@ class GenIR : public Visitor {
                 bt.current->symtable[VarDef->ident].val_p = (void*)val_dest;
 
                 // 然后计算该变量的值
-                
                 value_ptr val = (value_ptr)VarDef->initval->accept(this);
 
                 // 将该计算出来的值store给变量
@@ -261,8 +243,6 @@ class GenIR : public Visitor {
                 val_store->kind.data.store.dest = val_dest;
                 val_store->kind.data.store.value = val;
                 tr->AddValue(val_store);
-
-                
             }
             else {
                 assert(false);
@@ -278,15 +258,147 @@ class GenIR : public Visitor {
         return val;
     }
     void *visit(StmtAST *Stmt) {
+        tr->stmt_cur = Stmt;
+        if (Stmt->type == StmtAST::OPENSTMT) {
+            Stmt->openstmt->accept(this);
+        } else if (Stmt->type == StmtAST::CLOSEDSTMT) {
+            Stmt->closedstmt->accept(this);
+        }
+        return NULL;
+    }
+    void *visit(OpenStmtAST *OpenStmt) {
+        value_ptr val = tr->NewValue();
+        val->kind.tag = IR_BRANCH;
+        val->kind.data.branch.cond = (value_ptr)OpenStmt->exp->accept(this);
+        tr->AddValue(val);
+        if (OpenStmt->type == OpenStmtAST::IF) {
+            // 创建一个基本块，作为条件为true时所跳转的基本块
+            basic_block_ptr bb = tr->NewBasicBlock();
+            tr->AddBasicBlock(bb);
+            tr->bb_cur = bb;
+            val->kind.data.branch.true_bb = bb;
+            bb->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+            OpenStmt->stmt->accept(this);
+
+            value_ptr val_j1 = tr->NewValue();
+            val_j1->kind.tag = IR_JUMP;
+            tr->AddValue(val_j1);
+
+            // 创建一个新的基本块，作为分支指令创建的基本块的出口
+            basic_block_ptr bb_end = tr->NewBasicBlock();
+            tr->AddBasicBlock(bb_end);
+            tr->bb_cur = bb_end;
+            bb_end->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+
+            val->kind.data.branch.false_bb = bb_end;
+
+            // 在创建的基本块的末尾加上跳转指令
+            val_j1->kind.data.jump.target = bb_end;
+        }
+        else if (OpenStmt->type == OpenStmtAST::IF_ELSE) {
+            // 创建一个新的基本块，作为条件为true时跳转的基本块
+            basic_block_ptr bb_true = tr->NewBasicBlock();
+            tr->AddBasicBlock(bb_true);
+            tr->bb_cur = bb_true;
+            val->kind.data.branch.true_bb = bb_true;
+            bb_true->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+            OpenStmt->closedstmt->accept(this);
+
+            value_ptr val_j1 = tr->NewValue();
+            val_j1->kind.tag = IR_JUMP;
+            tr->AddValue(val_j1);
+
+            // 创建一个基本块，作为条件为false时跳转的基本块
+            basic_block_ptr bb_false = tr->NewBasicBlock();
+            tr->AddBasicBlock(bb_false);
+            tr->bb_cur = bb_false;
+            val->kind.data.branch.false_bb = bb_false;
+            bb_false->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+            OpenStmt->openstmt->accept(this);
+
+            value_ptr val_j2 = tr->NewValue();
+            val_j2->kind.tag = IR_JUMP;
+            tr->AddValue(val_j2);
+
+            // 创建一个新的基本块，作为分支指令创建的基本块的出口
+            
+            basic_block_ptr bb_end = tr->NewBasicBlock();
+            tr->AddBasicBlock(bb_end);
+            tr->bb_cur = bb_end;
+            bb_end->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+
+            // 在创建的基本块的末尾加上跳转指令
+            
+            val_j1->kind.data.jump.target = bb_end;
+
+            
+            val_j2->kind.data.jump.target = bb_end;
+        }
+        return NULL;
+    }
+    void *visit(ClosedStmtAST *ClosedStmt) {
+        
+        if (ClosedStmt->type == ClosedStmtAST::NONIF) {
+            ClosedStmt->nonifstmt->accept(this);
+        }
+        else if (ClosedStmt->type == ClosedStmtAST::IF_ELSE) {
+            // 创建一条新的branch指令
+            value_ptr val = tr->NewValue();
+            val->kind.tag = IR_BRANCH;
+            val->kind.data.branch.cond = (value_ptr)ClosedStmt->exp->accept(this);
+            tr->AddValue(val);
+            // 创建条件为true时应该跳转的基本块
+            basic_block_ptr bb_true = tr->NewBasicBlock();
+            tr->AddBasicBlock(bb_true);
+            tr->bb_cur = bb_true;
+            val->kind.data.branch.true_bb = bb_true;
+            bb_true->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+            ClosedStmt->closedstmt_if->accept(this);
+            // 在处理完true基本块后，在当前基本块中添加跳转指令（由上一个bb_end跳转到当前bb_end）
+            value_ptr val_j1 = tr->NewValue();
+            val_j1->kind.tag = IR_JUMP;
+            tr->AddValue(val_j1);
+            // 创建条件为false时应该跳转的基本块
+            basic_block_ptr bb_false = tr->NewBasicBlock();
+            tr->AddBasicBlock(bb_false);
+            tr->bb_cur = bb_false;
+            val->kind.data.branch.false_bb = bb_false;
+            bb_false->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+            ClosedStmt->closedstmt_else->accept(this);
+            // 在处理完false基本块后，在当前基本块中添加跳转指令（由上一个bb_end跳转到当前bb_end）
+            value_ptr val_j2 = tr->NewValue();
+            val_j2->kind.tag = IR_JUMP;
+            tr->AddValue(val_j2);
+            // 创建收尾基本块，分支执行完之后将跳转到这里
+            basic_block_ptr bb_end = tr->NewBasicBlock();
+            tr->AddBasicBlock(bb_end);
+            bb_end->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+            tr->bb_cur = bb_end;
+
+            // 在创建的基本块的末尾加上跳转指令
+            val_j1->kind.data.jump.target = bb_end;
+            val_j2->kind.data.jump.target = bb_end;
+        }
+        return NULL;
+    }
+    void *visit(NonIfStmtAST *NonIfStmt) {
         // 创建一个新的value类型（这里表示指令），并为其成员变量分配空间
         value_ptr val = tr->NewValue();
         
-        if (Stmt->type == StmtAST::RETURN) {
+        if (NonIfStmt->type == NonIfStmtAST::RETURN) {
             // 目前只处理return指令
             val->kind.tag = IR_RETURN;
 
-            if (Stmt->exp != NULL) {
-                value_ptr val_ret = (value_ptr)Stmt->exp->accept(this);
+            if (NonIfStmt->exp != NULL) {
+                value_ptr val_ret = (value_ptr)NonIfStmt->exp->accept(this);
                 val->kind.data.ret.value = val_ret;
             }
             else {
@@ -295,18 +407,57 @@ class GenIR : public Visitor {
             // 将该指令添加到当前基本块中
             tr->AddValue(val);
         }
-        else if (Stmt->type == StmtAST::ASSIGN) {
+        else if (NonIfStmt->type == NonIfStmtAST::ASSIGN) {
             val->kind.tag = IR_STORE;
-            val->kind.data.store.value = (value_ptr)Stmt->exp->accept(this);
-            val->kind.data.store.dest = (value_ptr)bt.current->symtable[Stmt->lval].val_p;
-            bt.current->symtable[Stmt->lval].has_value = true;
+            val->kind.data.store.value = (value_ptr)NonIfStmt->exp->accept(this);
+            val->kind.data.store.dest = (value_ptr)bt.current->symtable[NonIfStmt->lval].val_p;
+            bt.current->symtable[NonIfStmt->lval].has_value = true;
             tr->AddValue(val);
         }
-        else if (Stmt->type == StmtAST::BLOCK) {
-            Stmt->block->accept(this);
+        else if (NonIfStmt->type == NonIfStmtAST::BLOCK) {
+            NonIfStmt->block->accept(this);
         }
-        else if (Stmt->type == StmtAST::VOID) {
+        else if (NonIfStmt->type == NonIfStmtAST::VOID) {
             return NULL;
+        }
+        else if (NonIfStmt->type == NonIfStmtAST::WHILE) {
+            value_ptr val_j1 = tr->NewValue();
+            tr->AddValue(val_j1);
+            val_j1->kind.tag = IR_JUMP;
+
+            basic_block_ptr while_entry = tr->NewBasicBlock();
+            tr->AddBasicBlock(while_entry);
+            tr->bb_cur = while_entry;
+            while_entry->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+            val_j1->kind.data.jump.target = while_entry;
+
+
+            value_ptr val_br = tr->NewValue();
+            val_br->kind.tag = IR_BRANCH;
+            val_br->kind.data.branch.cond = (value_ptr)NonIfStmt->exp->accept(this);
+            tr->AddValue(val_br);
+
+            basic_block_ptr while_body = tr->NewBasicBlock();
+            tr->AddBasicBlock(while_body);
+            tr->bb_cur = while_body;
+            while_body->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+            val_br->kind.data.branch.true_bb = while_body;
+
+            NonIfStmt->stmt->accept(this);
+
+            value_ptr val_j2 = tr->NewValue();
+            tr->AddValue(val_j2);
+            val_j2->kind.tag = IR_JUMP;
+            val_j2->kind.data.jump.target = while_entry;
+
+            basic_block_ptr end = tr->NewBasicBlock();
+            tr->AddBasicBlock(end);
+            tr->bb_cur = end;
+            end->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+            val_br->kind.data.branch.false_bb = end;
         }
 
         return val;
