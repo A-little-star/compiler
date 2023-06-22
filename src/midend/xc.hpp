@@ -29,8 +29,13 @@ typedef struct {
 typedef slice *slice_ptr;
 
 enum inst_kind_tag {
+    // 整型数据
     IR_INTEGER,
     IR_VARIABLE,
+    // Function argumemnt reference.
+    IR_FUNC_ARG,
+    // Basic block argument reference.
+    IR_BLOCK_ARG,
     // 变量存储单元分配
     IR_ALLOC,
     IR_GLOBAL_ALLOC,
@@ -51,15 +56,15 @@ enum inst_kind_tag {
 };
 
 enum type_kind_tag {
-    // 
+    // 32-bit integer.
     KOOPA_TYPE_INT32,
-    // 
+    // Unit(void).
     KOOPA_TYPE_UNIT,
-    //
+    // Array(with base type and length).
     KOOPA_TYPE_ARRAY,
-    //
+    // Pointer(with base type).
     KOOPA_TYPE_POINTER,
-    //
+    // Function(with parameter types and return type).
     KOOPA_TYPE_FUNCTION,
 };
 
@@ -114,6 +119,14 @@ typedef struct {
 } integer_t;
 
 typedef struct {
+    size_t index;
+} func_arg_t;
+
+typedef struct {
+    size_t index;
+} block_arg_t;
+
+typedef struct {
     type_kind ty;
     char *name;
 } alloc_t;
@@ -154,6 +167,15 @@ typedef struct {
     slice_ptr args;
 } jump_t;
 
+typedef struct function *func_ptr;
+
+typedef struct {
+    // Callee.
+    func_ptr callee;
+    // Arguments.
+    slice_ptr args;
+} call_t;
+
 typedef struct {
     value_ptr value;
 } return_t;
@@ -162,6 +184,8 @@ typedef struct {
     inst_kind_tag tag;
     union {
         integer_t integer;
+        func_arg_t func_arg;
+        block_arg_t block_arg;
         // variable_t var;
         alloc_t alloc;
         load_t load;
@@ -169,6 +193,7 @@ typedef struct {
         binary_t binary;
         branch_t branch;
         jump_t jump;
+        call_t call;
         return_t ret;
     } data;
 } inst_kind;
@@ -177,6 +202,8 @@ typedef struct {
 struct value {
     // 该value的数据类型
     type_kind ty;
+    // Name of value, null if no name.
+    std::string name;
     // 该指令用到的操作数
     slice_ptr used;
     // 哪些指令用到该指令的返回值
@@ -196,7 +223,7 @@ typedef struct {
 
 typedef program *prog_ptr;
 
-typedef struct {
+typedef struct function {
     // Type of function's return value.
     type_kind ty;
     // Name of function.
@@ -207,7 +234,7 @@ typedef struct {
     slice_ptr bbs;
 } function;
 
-typedef function *func_ptr;
+
 
 struct basic_block {
     // Name of basic block, null if no name.

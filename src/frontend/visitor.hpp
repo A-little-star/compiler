@@ -1,12 +1,19 @@
 #ifndef VISITOR_HPP
 #define VISITOR_HPP
 
+#include <assert.h>
 #include "../midend/xc.hpp"
 // #include "AST.hpp"
 class BaseAST;
 class CompUnitAST;
+class CompItemsAST;
+class CompItemAST;
+
 class FuncDefAST;
 class FuncTypeAST;
+class FuncFParamsAST;
+class FuncFParamAST;
+class FuncRParamsAST;
 
 // 基本块类型
 class BlockAST;
@@ -46,6 +53,8 @@ class LOrExpAST;
 
 class Translate_Helper {
     public:
+        // 当前所在的编译单元
+        prog_ptr prog_cur;
         // 当前所在的函数
         func_ptr func_cur;
         // 当前所在的基本块（Koopa IR中的概念）
@@ -54,6 +63,8 @@ class Translate_Helper {
         type_kind ty_cur;
         // 当前所处理的语句
         StmtAST *stmt_cur;
+        // 当前函数参数的index
+        int fp_index_cur;
 
         value_ptr NewValue() {
             // 新建一个value类型，并为其成员变量分配内存空间
@@ -94,6 +105,46 @@ class Translate_Helper {
             return prog;
         }
 
+        void AddFunc(func_ptr func) {
+            prog_cur->funcs->buffer.push_back(func);
+            prog_cur->funcs->len ++;
+            prog_cur->funcs->kind = RISK_FUNCTION;
+        }
+
+        // 判断变量名为param_name的变量是否存在于当前函数的参数列表中，如果存在，返回该存数的value指针，否则返回NULL
+        value_ptr IsParam(std::string param_name) {
+            value_ptr val = NULL;
+            std::string pn = "@" + param_name;
+            for (size_t i = 0; i < func_cur->params->len; i ++ ) {
+                value_ptr param = (value_ptr)func_cur->params->buffer[i];
+                if (pn == param->name) {
+                    value_ptr v_alloc = NewValue();
+                    v_alloc->name = "%" + pn.substr(1);
+                    v_alloc->ty.tag = param->ty.tag;
+                    v_alloc->kind.tag = IR_ALLOC;
+                    AddValue(v_alloc);
+                    value_ptr v_store = NewValue();
+                    v_store->kind.tag = IR_STORE;
+                    v_store->kind.data.store.dest = v_alloc;
+                    v_store->kind.data.store.value = param;
+                    AddValue(v_store);
+                    value_ptr v_load = NewValue();
+                    v_load->ty.tag = v_alloc->ty.tag;
+                    v_load->kind.tag = IR_LOAD;
+                    v_load->kind.data.load.src = v_alloc;
+                    AddValue(v_load);
+                    val = v_load;
+                    // val = param;
+                    break;
+                }
+            }
+            return val;
+        }
+
+        void AddGlobalValue(value_ptr val) {
+            assert(false);
+        }
+
         void AddValue(value_ptr val) {
             value_ptr last_val = NULL;
             if (bb_cur->insts->len > 0) 
@@ -126,6 +177,12 @@ class Translate_Helper {
             }
         }
 
+        void InsertParam(value_ptr param, slice_ptr params) {
+            params->buffer.push_back(param);
+            params->len ++;
+            params->kind = RISK_VALUE;
+        }
+
         void AddBasicBlock(basic_block_ptr bb) {
             func_cur->bbs->buffer.push_back(bb);
             func_cur->bbs->len ++;
@@ -137,8 +194,12 @@ class Visitor {
     public:
         Translate_Helper *tr;
         virtual void *visit(CompUnitAST *) { return NULL; }
+        virtual void *visit(CompItemsAST *) { return NULL; }
+        virtual void *visit(CompItemAST *) { return NULL; }
         virtual void *visit(FuncDefAST *) { return NULL; }
         virtual void *visit(FuncTypeAST *) { return NULL; }
+        virtual void *visit(FuncFParamsAST *) { return NULL; }
+        virtual void *visit(FuncFParamAST *) { return NULL; }
         virtual void *visit(BlockAST *) { return NULL; }
         virtual void *visit(BlockItemsAST *) { return NULL; }
         virtual void *visit(BlockItemAST *) { return NULL; }
@@ -160,6 +221,7 @@ class Visitor {
         virtual void *visit(ExpAST *) { return NULL; }
         virtual void *visit(PrimaryExpAST *) { return NULL; }
         virtual void *visit(UnaryExpAST *) { return NULL; }
+        virtual void *visit(FuncRParamsAST *) { return NULL; }
         virtual void *visit(MulExpAST *) { return NULL; }
         virtual void *visit(AddExpAST *) { return NULL; }
         virtual void *visit(RelExpAST *) { return NULL; }

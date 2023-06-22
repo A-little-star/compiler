@@ -41,6 +41,7 @@ Hexadecimal   0[xX][0-9a-fA-F]+
 "break"         { return BREAK; }
 "continue"      { return CONTINUE; }
 "for"           { return FOR; }
+"void"          { return VOID; }
 
 {Identifier}    { yylval.str_val = new string(yytext); return IDENT; }
 

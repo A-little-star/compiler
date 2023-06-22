@@ -12,49 +12,13 @@ class Visitor;
 static int bb_id;
 std::unordered_map<StmtAST*, basic_block_ptr> end_map;
 std::unordered_map<std::string, int> rep_map;
+std::unordered_map<std::string, func_ptr> func_map;
 
 class GenIR : public Visitor {
     void *visit(CompUnitAST *CompUnit) {
-        // 创建一个新的program类型，并为其成员变量分配内存空间
-        // prog_ptr prog = new program;
-        // prog->funcs = new slice;
-        // prog->funcs->len = 0;
-        // prog->values = new slice;
-        // prog->values->len = 0;
+        // 新建一个program.
         prog_ptr prog = tr->NewProgram();
-        // 递归调用program下的funcdef
-        func_ptr func = (func_ptr)CompUnit->func_def->accept(this);
-        // 将该函数添加到program之中
-        prog->funcs->buffer.push_back(func);
-        prog->funcs->len ++;
-        prog->funcs->kind = RISK_FUNCTION;
-        return prog;
-    }
-    void *visit(FuncDefAST *FuncDef) {
-        // 创建一个新的函数类型，并为其成员变量分配空间
-        func_ptr func = tr->NewFuncion();
-        // func_ptr func = new function;
-        // func->bbs = new slice;
-        // func->bbs->len = 0;
-        // func->params = new slice;
-        // func->params->len = 0;
-        // helper 指针指向当前所在的函数
-        tr->func_cur = func;
-        
-        // 函数名
-        func->name = FuncDef->ident;
-        // 递归处理函数的返回值类型
-        type_kind *ret_type = (type_kind*)FuncDef->func_type->accept(this);
-        func->ty = *ret_type;
-        // 创建一个新的Basic block，并为其成员变量分配空间；
-        basic_block_ptr bb = tr->NewBasicBlock();
-        bb->name = "%entry";
-        // helper 指针指向当前所在的基本块
-        tr->bb_cur = bb;
-
-        // 将该基本块添加到所在的函数中
-        tr->AddBasicBlock(bb);
-
+        tr->prog_cur = prog;
         // 创建语句块树的根节点
         BlockTreeNode *root_bt = new BlockTreeNode;
         root_bt->father_block = root_bt;
@@ -71,22 +35,121 @@ class GenIR : public Visitor {
         root_lt->loop_end = NULL;
         lt.root = root_lt;
         lt.current = root_lt;
+        // 递归调用program下的funcdef
+        CompUnit->compitems->accept(this);
         
-        // 递归处理block语句块
-        FuncDef->block->accept(this);
-
         // 回收内存
         delete root_bt;
         root_bt = NULL;
         delete root_lt;
         root_lt = NULL;
+        return prog;
+    }
+    void *visit(CompItemsAST *CompItems) {
+        for (size_t i = 0; i < CompItems->compitems.size(); i ++ ) {
+            CompItems->compitems[i]->accept(this);
+        }
+        return NULL;
+    }
+    void *visit(CompItemAST *CompItem) {
+        if (CompItem->type == CompItemAST::FUNC) {
+            func_ptr func = (func_ptr)CompItem->funcdef->accept(this);
+            tr->AddFunc(func);
+        }
+        else if (CompItem->type == CompItemAST::DECL) {
+            printf("There is an exception in visit of CompItemAST!\n");
+            assert(false);
+        }
+        return NULL;
+    }
+    void *visit(FuncDefAST *FuncDef) {
+        // 创建一个新的函数类型，并为其成员变量分配空间
+        func_ptr func = tr->NewFuncion();
+        // 进入funcdef之后，需要开启一个新的作用域
+        BlockTreeNode *btn = new BlockTreeNode;
+        btn->symtable = bt.current->symtable;
+        btn->father_block = bt.current;
+        bt.current = btn;
+
+        tr->func_cur = func;
         
+        // 函数名
+        func->name = "@" + FuncDef->ident;
+        // 递归处理函数的返回值类型
+        type_kind *ret_type = (type_kind*)FuncDef->func_type->accept(this);
+        func->ty = *ret_type;
+        // 如果函数有形参列表，那么递归处理函数的形参列表
+        if (FuncDef->type == FuncDefAST::HAS_PARAMS) {
+            func->params = (slice_ptr)FuncDef->funcfparams->accept(this);
+        }
+        else {
+            slice_ptr params = new slice;
+            params->len = 0;
+            func->params = params;
+        }
+        // 创建一个新的Basic block，并为其成员变量分配空间；
+        basic_block_ptr bb = tr->NewBasicBlock();
+        bb->name = "%entry";
+        // helper 指针指向当前所在的基本块
+        tr->bb_cur = bb;
+
+        // 将该基本块添加到所在的函数中
+        tr->AddBasicBlock(bb);
+
+        
+        
+        // 递归处理block语句块
+        FuncDef->block->accept(this);
+        // 处理完语句块之后，如果是void返回值函数，添加一条ret指令
+        if (func->ty.tag == KOOPA_TYPE_UNIT) {
+            value_ptr ret = tr->NewValue();
+            ret->kind.tag = IR_RETURN;
+            ret->kind.data.ret.value = NULL;
+            tr->AddValue(ret);
+        }
+        // 更新func_map
+        func_map[FuncDef->ident] = func;
+        // 释放空间
+        btn->symtable.clear();
+        delete btn;
+        btn = NULL;
         return func;
+    }
+    void *visit(FuncFParamsAST *FuncFParams) {
+        slice_ptr fparams = new slice;
+        for (size_t i = 0; i < FuncFParams->funcfparams.size(); i ++ ) {
+            tr->fp_index_cur = i + 1;
+            value_ptr fparam = (value_ptr)FuncFParams->funcfparams[i]->accept(this);
+            tr->InsertParam(fparam, fparams);
+        }
+        return fparams;
+    }
+    void *visit(FuncFParamAST *FuncFParam) {
+        value_ptr fparam = tr->NewValue();
+        if (FuncFParam->btype == "int") {
+            fparam->ty.tag = KOOPA_TYPE_INT32;
+        }
+        else {
+            printf("There is an exception in the visit of FuncFParamAST!\n");
+            assert(false);
+        }
+        fparam->name = "@" + FuncFParam->ident;
+        fparam->kind.tag = IR_FUNC_ARG;
+        fparam->kind.data.func_arg.index = tr->fp_index_cur;
+        
+        return fparam;
     }
     void *visit(FuncTypeAST *FuncType) {
         // 新建一个函数返回值类型的指针
         type_kind *ret_type = new type_kind;
-        ret_type->tag = KOOPA_TYPE_INT32;
+        if (FuncType->type == "int")
+            ret_type->tag = KOOPA_TYPE_INT32;
+        else if (FuncType->type == "void")
+            ret_type->tag = KOOPA_TYPE_UNIT;
+        else {
+            printf("There is an exception in visit of FuncType!\n");
+            assert(false);
+        }
         return ret_type;
     }
     void *visit(BlockAST *Block) {
@@ -95,7 +158,7 @@ class GenIR : public Visitor {
         }
         // 创建一个新的BlockTreeNode
         BlockTreeNode *block = new BlockTreeNode;
-        block->father_block = bt.current;
+        block->father_block = bt.root;
         if (bt.current != bt.root) {
             block->symtable = bt.current->symtable;
             block->father_block = bt.current;
@@ -195,12 +258,16 @@ class GenIR : public Visitor {
                 // 插入一个alloc指令，将变量分配出来
                 value_ptr val_dest = tr->NewValue();
                 val_dest->kind.tag = IR_ALLOC;
-                if (tr->ty_cur.tag == KOOPA_TYPE_INT32) val_dest->kind.data.alloc.ty.tag = KOOPA_TYPE_INT32;
+                if (tr->ty_cur.tag == KOOPA_TYPE_INT32) {
+                    val_dest->kind.data.alloc.ty.tag = KOOPA_TYPE_INT32;
+                    val_dest->ty.tag = KOOPA_TYPE_INT32;
+                }
                 else {
                     printf("There is an exception in visit of VarDef!\n");
                     assert(false);
                 }
 
+                val_dest->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
                 std::string str = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
                 val_dest->kind.data.alloc.name = new char;
                 for (size_t i = 0; i < str.size(); i ++ ) {
@@ -235,6 +302,7 @@ class GenIR : public Visitor {
                     assert(false);
                 }
 
+                val_dest->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
                 std::string str = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
                 val_dest->kind.data.alloc.name = new char;
                 for (size_t i = 0; i < str.size(); i ++ ) {
@@ -577,6 +645,8 @@ class GenIR : public Visitor {
             tr->AddValue(val);
         }
         else if (LessStmt->type == LessStmtAST::VOID) {
+            if (LessStmt->exp != NULL)
+                LessStmt->exp->accept(this);
             return NULL;
         }
         else if (LessStmt->type == LessStmtAST::BREAK) {
@@ -617,6 +687,16 @@ class GenIR : public Visitor {
             return val;
         }
         else if (PrimaryExp->type == PrimaryExpAST::LVAL) {
+            if (bt.current->symtable.count(PrimaryExp->lval) == 0) {
+                value_ptr val = tr->IsParam(PrimaryExp->lval);
+                if (val != NULL) {
+                    return val;
+                }
+                else {
+                    printf("There is an undefined variable was used!\n");
+                    assert(false);
+                }
+            }
             if (bt.current->symtable[PrimaryExp->lval].kind == CON) {
                 value_ptr val = new value;
                 val->kind.tag = IR_INTEGER;
@@ -630,6 +710,10 @@ class GenIR : public Visitor {
                 tr->AddValue(val);
                 
                 return val;
+            }
+            else {
+                printf("There is an undefined variable was used!\n");
+                assert(false);
             }
         }
         else {
@@ -670,10 +754,38 @@ class GenIR : public Visitor {
             
             return val;
         }
+        else if (UnaryExp->type == UnaryExpAST::FUNC_NO_PARAMS) {
+            value_ptr call = tr->NewValue();
+            call->ty.tag = func_map[UnaryExp->ident]->ty.tag;
+            call->kind.tag = IR_CALL;
+            call->kind.data.call.callee = func_map[UnaryExp->ident];
+            slice_ptr args = new slice;
+            args->len = 0;
+            call->kind.data.call.args = args;
+            tr->AddValue(call);
+            return call;
+        }
+        else if (UnaryExp->type == UnaryExpAST::FUNC_HAS_PARAMS) {
+            value_ptr call = tr->NewValue();
+            call->ty.tag = func_map[UnaryExp->ident]->ty.tag;
+            call->kind.tag = IR_CALL;
+            call->kind.data.call.callee = func_map[UnaryExp->ident];
+            call->kind.data.call.args = (slice_ptr)UnaryExp->funcrparams->accept(this);
+            tr->AddValue(call);
+            return call;
+        }
         else {
             printf("There is a exception in visit of UnaryExp!\n");
             return NULL;
         }
+    }
+    void *visit(FuncRParamsAST *FuncRParams) {
+        slice_ptr params = new slice;
+        for (size_t i = 0; i < FuncRParams->funcrparams.size(); i ++ ) {
+            value_ptr param = (value_ptr)FuncRParams->funcrparams[i]->accept(this);
+            tr->InsertParam(param, params);
+        }
+        return params;
     }
     void *visit(MulExpAST *MulExp) {
         if (MulExp->type == MulExpAST::NAN) {

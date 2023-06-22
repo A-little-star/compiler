@@ -37,12 +37,12 @@ using namespace std;
 
 // lexer 返回的所有 token 种类的声明
 // 注意 IDENT 和 INT_CONST 会返回 token 的值, 分别对应 str_val 和 int_val
-%token INT RETURN CONST IF ELSE WHILE BREAK CONTINUE FOR
+%token INT RETURN CONST IF ELSE WHILE BREAK CONTINUE FOR VOID
 %token <str_val> IDENT LTOP GTOP EQOP NEQOP ANDOP OROP
 %token <int_val> INT_CONST
 
 // 非终结符的类型定义
-%type <ast_val> FuncDef FuncType Block Stmt OpenStmt ClosedStmt NonIfStmt LessStmt Exp PrimaryExp UnaryExp MulExp AddExp RelExp EqExp LAndExp LOrExp BlockItems BlockItem Decl ConstDecl ConstDefs ConstDef ConstInitVal ConstExp
+%type <ast_val> CompItems CompItem FuncDef FuncType FuncFParams FuncFParam FuncRParams Block Stmt OpenStmt ClosedStmt NonIfStmt LessStmt Exp PrimaryExp UnaryExp MulExp AddExp RelExp EqExp LAndExp LOrExp BlockItems BlockItem Decl ConstDecl ConstDefs ConstDef ConstInitVal ConstExp
 %type <ast_val> VarDecl VarDefs VarDef InitVal
 %type <str_val> UnaryOp RelOp EqOp LAndOp LOrOp BType LVal
 %type <int_val> Number
@@ -55,10 +55,38 @@ using namespace std;
 // 此时我们应该把 FuncDef 返回的结果收集起来, 作为 AST 传给调用 parser 的函数
 // $1 指代规则里第一个符号的返回值, 也就是 FuncDef 的返回值
 CompUnit
-  : FuncDef {
+  : CompItems {
     auto comp_unit = make_unique<CompUnitAST>();
-    comp_unit->func_def = unique_ptr<BaseAST>($1);
+    comp_unit->compitems = unique_ptr<BaseAST>($1);
     ast = move(comp_unit);
+  }
+  ;
+
+CompItems
+  : CompItems CompItem {
+    CompItemsAST *ast = (CompItemsAST*)($1);
+    ast->compitems.emplace_back(unique_ptr<BaseAST>($2));
+    $$ = ast;
+  }
+  | CompItem {
+    auto ast = new CompItemsAST();
+    ast->compitems.emplace_back(unique_ptr<BaseAST>($1));
+    $$ = ast;
+  }
+  ;
+
+CompItem
+  : Decl {
+    auto ast = new CompItemAST();
+    ast->type = CompItemAST::DECL;
+    ast->decl = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | FuncDef {
+    auto ast = new CompItemAST();
+    ast->type = CompItemAST::FUNC;
+    ast->funcdef = unique_ptr<BaseAST>($1);
+    $$ = ast;
   }
   ;
 
@@ -75,9 +103,20 @@ CompUnit
 FuncDef
   : FuncType IDENT '(' ')' Block {
     auto ast = new FuncDefAST();
+    ast->type = FuncDefAST::NO_PARAMS;
     ast->func_type = unique_ptr<BaseAST>($1);
     ast->ident = *unique_ptr<string>($2);
+    ast->funcfparams = NULL;
     ast->block = unique_ptr<BaseAST>($5);
+    $$ = ast;
+  }
+  | FuncType IDENT '(' FuncFParams ')' Block {
+    auto ast = new FuncDefAST();
+    ast->type = FuncDefAST::HAS_PARAMS;
+    ast->func_type = unique_ptr<BaseAST>($1);
+    ast->ident = *unique_ptr<string>($2);
+    ast->funcfparams = unique_ptr<BaseAST>($4);
+    ast->block = unique_ptr<BaseAST>($6);
     $$ = ast;
   }
   ;
@@ -87,6 +126,33 @@ FuncType
   : INT {
     auto ast = new FuncTypeAST();
     ast->type = "int";
+    $$ = ast;
+  }
+  | VOID {
+    auto ast = new FuncTypeAST();
+    ast->type = "void";
+    $$ = ast;
+  }
+  ;
+
+FuncFParams
+  : FuncFParams ',' FuncFParam {
+    FuncFParamsAST* ast = (FuncFParamsAST*)($1);
+    ast->funcfparams.emplace_back(unique_ptr<BaseAST>($3));
+    $$ = ast;
+  }
+  | FuncFParam {
+    auto ast = new FuncFParamsAST();
+    ast->funcfparams.emplace_back(unique_ptr<BaseAST>($1));
+    $$ = ast;
+  }
+  ;
+
+FuncFParam
+  : BType IDENT {
+    auto ast = new FuncFParamAST();
+    ast->btype = *unique_ptr<string>($1);
+    ast->ident = *unique_ptr<string>($2);
     $$ = ast;
   }
   ;
@@ -420,6 +486,32 @@ UnaryExp
     ast->type = UnaryExpAST::EXP;
     ast->unaryop = *unique_ptr<string>($1);
     ast->unaryexp = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  | IDENT '(' ')' {
+    auto ast = new UnaryExpAST();
+    ast->type = UnaryExpAST::FUNC_NO_PARAMS;
+    ast->ident = *unique_ptr<string>($1);
+    $$ = ast;
+  }
+  | IDENT '(' FuncRParams ')' {
+    auto ast = new UnaryExpAST();
+    ast->type = UnaryExpAST::FUNC_HAS_PARAMS;
+    ast->ident = *unique_ptr<string>($1);
+    ast->funcrparams = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  ;
+
+FuncRParams
+  : FuncRParams ',' Exp {
+    FuncRParamsAST *ast = (FuncRParamsAST*)($1);
+    ast->funcrparams.emplace_back(unique_ptr<BaseAST>($3));
+    $$ = ast;
+  }
+  | Exp {
+    auto ast = new FuncRParamsAST();
+    ast->funcrparams.emplace_back(unique_ptr<BaseAST>($1));
     $$ = ast;
   }
   ;

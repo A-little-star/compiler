@@ -17,11 +17,11 @@ class BaseAST {
 
 class CompUnitAST : public BaseAST {
     public:
-        std::unique_ptr<BaseAST> func_def;
+        std::unique_ptr<BaseAST> compitems;
 
         void Dump() const override {
             std::cout << "CompUnit {\n";
-            func_def->Dump();
+            compitems->Dump();
             std::cout << "}\n";
         }
 
@@ -30,11 +30,44 @@ class CompUnitAST : public BaseAST {
         }
 };
 
+class CompItemsAST : public BaseAST {
+    public:
+        std::vector<std::unique_ptr<BaseAST>> compitems;
+
+        void Dump() const override {
+            for (size_t i = 0; i < compitems.size(); i ++ ) {
+                compitems[i]->Dump();
+            }
+        }
+        void *accept(Visitor *v) override {
+            return v->visit(this);
+        }
+};
+
+class CompItemAST : public BaseAST {
+    public:
+        enum {DECL, FUNC} type;
+        std::unique_ptr<BaseAST> decl;
+        std::unique_ptr<BaseAST> funcdef;
+
+        void Dump() const override {
+            std::cout << "CompItem: {\n";
+            if (type == DECL) decl->Dump();
+            else funcdef->Dump();
+            std::cout << "}\n";
+        }
+        void *accept(Visitor *v) override {
+            return v->visit(this);
+        }
+};
+
 class FuncDefAST : public BaseAST {
     public:
+        enum {NO_PARAMS, HAS_PARAMS} type;
         std::unique_ptr<BaseAST> func_type;
         std::string ident;
         std::unique_ptr<BaseAST> block;
+        std::unique_ptr<BaseAST> funcfparams;
 
         void Dump() const override {
             std::cout << "FuncDef {\n";
@@ -43,6 +76,31 @@ class FuncDefAST : public BaseAST {
             std::cout << "}\n";
         }
 
+        void *accept(Visitor *v) override {
+            return v->visit(this);
+        }
+};
+
+class FuncFParamsAST : public BaseAST {
+    public:
+        std::vector<std::unique_ptr<BaseAST>> funcfparams;
+
+        void Dump() const override {
+
+        }
+        void *accept(Visitor *v) override {
+            return v->visit(this);
+        }
+};
+
+class FuncFParamAST : public BaseAST {
+    public:
+        std::string btype;
+        std::string ident;
+
+        void Dump() const override {
+
+        }
         void *accept(Visitor *v) override {
             return v->visit(this);
         }
@@ -457,10 +515,12 @@ class PrimaryExpAST : public BaseAST {
 
 class UnaryExpAST : public BaseAST {
     public:
-        enum type {NAN, EXP} type;
+        enum type {NAN, EXP, FUNC_NO_PARAMS, FUNC_HAS_PARAMS} type;
         std::unique_ptr<BaseAST> primaryexp;
         std::unique_ptr<BaseAST> unaryexp;
         std::string unaryop;
+        std::string ident;
+        std::unique_ptr<BaseAST> funcrparams;
 
         void Dump() const override {
             std::cout << "UnaryExp {\n";
@@ -486,6 +546,18 @@ class UnaryExpAST : public BaseAST {
                     return -1;
                 }
             }
+        }
+};
+
+class FuncRParamsAST : public BaseAST {
+    public:
+        std::vector<std::unique_ptr<BaseAST>> funcrparams;
+
+        void Dump() const override {
+
+        }
+        void *accept(Visitor *v) override {
+            return v->visit(this);
         }
 };
 
