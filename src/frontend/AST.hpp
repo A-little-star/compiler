@@ -33,6 +33,8 @@ class CompUnitAST : public BaseAST {
 class CompItemsAST : public BaseAST {
     public:
         std::vector<std::unique_ptr<BaseAST>> compitems;
+        std::vector<std::unique_ptr<BaseAST>> decls;
+        std::vector<std::unique_ptr<BaseAST>> funcdefs;
 
         void Dump() const override {
             for (size_t i = 0; i < compitems.size(); i ++ ) {

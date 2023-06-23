@@ -42,6 +42,7 @@ Hexadecimal   0[xX][0-9a-fA-F]+
 "continue"      { return CONTINUE; }
 "for"           { return FOR; }
 "void"          { return VOID; }
+"global"        { return GLOBAL; }
 
 {Identifier}    { yylval.str_val = new string(yytext); return IDENT; }
 

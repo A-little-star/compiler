@@ -65,6 +65,8 @@ class Translate_Helper {
         StmtAST *stmt_cur;
         // 当前函数参数的index
         int fp_index_cur;
+        // 当前变量声明是否处在全局作用域
+        bool is_global;
 
         value_ptr NewValue() {
             // 新建一个value类型，并为其成员变量分配内存空间
@@ -111,6 +113,12 @@ class Translate_Helper {
             prog_cur->funcs->kind = RISK_FUNCTION;
         }
 
+        void AddGlobalValue(value_ptr global_val) {
+            prog_cur->values->buffer.push_back(global_val);
+            prog_cur->values->len ++;
+            prog_cur->values->kind = RISK_VALUE;
+        }
+
         // 判断变量名为param_name的变量是否存在于当前函数的参数列表中，如果存在，返回该存数的value指针，否则返回NULL
         value_ptr IsParam(std::string param_name) {
             value_ptr val = NULL;
@@ -139,10 +147,6 @@ class Translate_Helper {
                 }
             }
             return val;
-        }
-
-        void AddGlobalValue(value_ptr val) {
-            assert(false);
         }
 
         void AddValue(value_ptr val) {

@@ -19,6 +19,7 @@ class GenIR : public Visitor {
         // 新建一个program.
         prog_ptr prog = tr->NewProgram();
         tr->prog_cur = prog;
+        tr->is_global = false;
         // 创建语句块树的根节点
         BlockTreeNode *root_bt = new BlockTreeNode;
         root_bt->father_block = root_bt;
@@ -57,8 +58,12 @@ class GenIR : public Visitor {
             tr->AddFunc(func);
         }
         else if (CompItem->type == CompItemAST::DECL) {
-            printf("There is an exception in visit of CompItemAST!\n");
-            assert(false);
+            tr->is_global = true;
+            CompItem->decl->accept(this);
+            tr->is_global = false;
+            // tr->AddGlobalValue(global_val);
+            // printf("There is an exception in visit of CompItemAST!\n");
+            // assert(false);
         }
         return NULL;
     }
@@ -255,29 +260,42 @@ class GenIR : public Visitor {
                 bt.current->symtable[VarDef->ident].has_value = false;
                 rep_map[VarDef->ident] += 1;
 
-                // 插入一个alloc指令，将变量分配出来
-                value_ptr val_dest = tr->NewValue();
-                val_dest->kind.tag = IR_ALLOC;
-                if (tr->ty_cur.tag == KOOPA_TYPE_INT32) {
-                    val_dest->kind.data.alloc.ty.tag = KOOPA_TYPE_INT32;
-                    val_dest->ty.tag = KOOPA_TYPE_INT32;
+                if (tr->is_global == false) {
+                    // 插入一个alloc指令，将变量分配出来
+                    value_ptr val_dest = tr->NewValue();
+                    val_dest->kind.tag = IR_ALLOC;
+                    if (tr->ty_cur.tag == KOOPA_TYPE_INT32) {
+                        val_dest->kind.data.alloc.ty.tag = KOOPA_TYPE_INT32;
+                        val_dest->ty.tag = KOOPA_TYPE_INT32;
+                    }
+                    else {
+                        printf("There is an exception in visit of VarDef!\n");
+                        assert(false);
+                    }
+
+                    val_dest->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
+                    std::string str = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
+                    val_dest->kind.data.alloc.name = new char;
+                    for (size_t i = 0; i < str.size(); i ++ ) {
+                        val_dest->kind.data.alloc.name[i] = str[i];
+                    }
+                    val_dest->kind.data.alloc.name[str.size()] = '\0';
+                    // val_dest->kind.data.alloc.name = "@" + VarDef->ident;
+                    tr->AddValue(val_dest);
+
+                    bt.current->symtable[VarDef->ident].val_p = (void*)val_dest;
                 }
                 else {
-                    printf("There is an exception in visit of VarDef!\n");
-                    assert(false);
+                    // 创建一个全局value.
+                    value_ptr global_val = tr->NewValue();
+                    global_val->ty.tag = tr->ty_cur.tag;
+                    global_val->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
+                    global_val->kind.tag = IR_GLOBAL_ALLOC;
+                    global_val->kind.data.global_alloc.init->ty.tag = tr->ty_cur.tag;
+                    global_val->kind.data.global_alloc.init->kind.tag = IR_INTEGER;
+                    global_val->kind.data.global_alloc.init->kind.data.integer.value = 0;
+                    tr->AddGlobalValue(global_val);
                 }
-
-                val_dest->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
-                std::string str = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
-                val_dest->kind.data.alloc.name = new char;
-                for (size_t i = 0; i < str.size(); i ++ ) {
-                    val_dest->kind.data.alloc.name[i] = str[i];
-                }
-                val_dest->kind.data.alloc.name[str.size()] = '\0';
-                // val_dest->kind.data.alloc.name = "@" + VarDef->ident;
-                tr->AddValue(val_dest);
-
-                bt.current->symtable[VarDef->ident].val_p = (void*)val_dest;
             }
             else {
                 printf("There is an exception in visit of VarDef!\n");
@@ -293,37 +311,50 @@ class GenIR : public Visitor {
                 bt.current->symtable[VarDef->ident].has_value = true;
                 rep_map[VarDef->ident] += 1;
 
-                // 首先插入一个alloc指令，将变量分配出来
-                value_ptr val_dest = tr->NewValue();
-                val_dest->kind.tag = IR_ALLOC;
-                if (tr->ty_cur.tag == KOOPA_TYPE_INT32) val_dest->kind.data.alloc.ty.tag = KOOPA_TYPE_INT32;
+                if (tr->is_global == false) {
+                    // 首先插入一个alloc指令，将变量分配出来
+                    value_ptr val_dest = tr->NewValue();
+                    val_dest->kind.tag = IR_ALLOC;
+                    if (tr->ty_cur.tag == KOOPA_TYPE_INT32) val_dest->kind.data.alloc.ty.tag = KOOPA_TYPE_INT32;
+                    else {
+                        printf("There is an exception in visit of VarDef!\n");
+                        assert(false);
+                    }
+
+                    val_dest->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
+                    std::string str = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
+                    val_dest->kind.data.alloc.name = new char;
+                    for (size_t i = 0; i < str.size(); i ++ ) {
+                        val_dest->kind.data.alloc.name[i] = str[i];
+                    }
+                    val_dest->kind.data.alloc.name[str.size()] = '\0';
+                    tr->AddValue(val_dest);
+
+                    // 将变量添加到符号表中
+                    
+                    bt.current->symtable[VarDef->ident].val_p = (void*)val_dest;
+
+                    // 然后计算该变量的值
+                    value_ptr val = (value_ptr)VarDef->initval->accept(this);
+
+                    // 将该计算出来的值store给变量
+                    value_ptr val_store = tr->NewValue();
+                    val_store->kind.tag = IR_STORE;
+                    val_store->kind.data.store.dest = val_dest;
+                    val_store->kind.data.store.value = val;
+                    tr->AddValue(val_store);
+                }
                 else {
-                    printf("There is an exception in visit of VarDef!\n");
-                    assert(false);
+                    // 创建一个全局value.
+                    value_ptr global_val = tr->NewValue();
+                    global_val->ty.tag = tr->ty_cur.tag;
+                    global_val->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
+                    global_val->kind.tag = IR_GLOBAL_ALLOC;
+                    global_val->kind.data.global_alloc.init->ty.tag = tr->ty_cur.tag;
+                    global_val->kind.data.global_alloc.init->kind.tag = IR_INTEGER;
+                    global_val->kind.data.global_alloc.init->kind.data.integer.value = VarDef->initval->get_value();
+                    tr->AddGlobalValue(global_val);
                 }
-
-                val_dest->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
-                std::string str = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
-                val_dest->kind.data.alloc.name = new char;
-                for (size_t i = 0; i < str.size(); i ++ ) {
-                    val_dest->kind.data.alloc.name[i] = str[i];
-                }
-                val_dest->kind.data.alloc.name[str.size()] = '\0';
-                tr->AddValue(val_dest);
-
-                // 将变量添加到符号表中
-                
-                bt.current->symtable[VarDef->ident].val_p = (void*)val_dest;
-
-                // 然后计算该变量的值
-                value_ptr val = (value_ptr)VarDef->initval->accept(this);
-
-                // 将该计算出来的值store给变量
-                value_ptr val_store = tr->NewValue();
-                val_store->kind.tag = IR_STORE;
-                val_store->kind.data.store.dest = val_dest;
-                val_store->kind.data.store.value = val;
-                tr->AddValue(val_store);
             }
             else {
                 assert(false);

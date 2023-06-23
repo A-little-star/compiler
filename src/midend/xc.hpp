@@ -131,6 +131,11 @@ typedef struct {
     char *name;
 } alloc_t;
 
+typedef struct {
+    // Initializer.
+    value_ptr init;
+} global_alloc_t;
+
 // typedef struct {
 //     std::string name;
 // } variable_t;
@@ -188,6 +193,7 @@ typedef struct {
         block_arg_t block_arg;
         // variable_t var;
         alloc_t alloc;
+        global_alloc_t global_alloc;
         load_t load;
         store_t store;
         binary_t binary;

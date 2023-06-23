@@ -35,9 +35,11 @@ using namespace std;
   BaseAST *ast_val;
 }
 
+
+
 // lexer 返回的所有 token 种类的声明
 // 注意 IDENT 和 INT_CONST 会返回 token 的值, 分别对应 str_val 和 int_val
-%token INT RETURN CONST IF ELSE WHILE BREAK CONTINUE FOR VOID
+%token INT RETURN CONST IF ELSE WHILE BREAK CONTINUE FOR VOID GLOBAL
 %token <str_val> IDENT LTOP GTOP EQOP NEQOP ANDOP OROP
 %token <int_val> INT_CONST
 
@@ -46,6 +48,7 @@ using namespace std;
 %type <ast_val> VarDecl VarDefs VarDef InitVal
 %type <str_val> UnaryOp RelOp EqOp LAndOp LOrOp BType LVal
 %type <int_val> Number
+
 
 %%
 
@@ -76,13 +79,16 @@ CompItems
   ;
 
 CompItem
+  // :
   : Decl {
+    printf("CompItem Decl\n");
     auto ast = new CompItemAST();
     ast->type = CompItemAST::DECL;
     ast->decl = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
   | FuncDef {
+    printf("CompItem FuncDef\n");
     auto ast = new CompItemAST();
     ast->type = CompItemAST::FUNC;
     ast->funcdef = unique_ptr<BaseAST>($1);
@@ -206,6 +212,7 @@ Decl
     $$ = ast;
   }
   | VarDecl {
+    printf("Decl:VarDecl\n");
     auto ast = new DeclAST();
     ast->type = DeclAST::VAR_DECL;
     ast->vardecl = unique_ptr<BaseAST>($1);
