@@ -27,6 +27,7 @@ void irDS2Text(const prog_ptr prog, std::ostream &os) {
 
 void GenCode(const prog_ptr prog, std::ostream &os) {
     GenCode(prog->values, os);
+    os << std::endl;
     GenCode(prog->funcs, os);
 }
 
@@ -86,13 +87,20 @@ void GenCode(const value_ptr val, std::ostream &os) {
         case IR_ALLOC:
         {
             os << "  " << val->name << " = alloc ";
-            // os << "  " << kind.data.alloc.name << " = alloc ";
             if (kind.data.alloc.ty.tag == KOOPA_TYPE_INT32) {
                 os << "i32" << std::endl;
             }
             else {
                 assert(false);
             }
+            break;
+        }
+        case IR_GLOBAL_ALLOC:
+        {
+            os << "global " << val->name << " = alloc ";
+            if (val->ty.tag == KOOPA_TYPE_INT32) os << "i32";
+            else assert(false);
+            os << ", " << val->kind.data.global_alloc.init->kind.data.integer.value << std::endl;
             break;
         }
         case IR_LOAD:
@@ -177,6 +185,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 os << "  ret\n";
                 break;
             }
+            printf("%d\n", kind.data.ret.value->kind.tag);
             switch (kind.data.ret.value->kind.tag) {
                 case IR_INTEGER: os << "  ret " << kind.data.ret.value->kind.data.integer.value << std::endl; break;
                 case IR_CALL:

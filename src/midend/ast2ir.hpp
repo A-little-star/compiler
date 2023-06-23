@@ -81,8 +81,11 @@ class GenIR : public Visitor {
         // 函数名
         func->name = "@" + FuncDef->ident;
         // 递归处理函数的返回值类型
-        type_kind *ret_type = (type_kind*)FuncDef->func_type->accept(this);
-        func->ty = *ret_type;
+        if (FuncDef->func_type == "int") func->ty.tag = KOOPA_TYPE_INT32;
+        else if (FuncDef->func_type == "void") func->ty.tag = KOOPA_TYPE_UNIT;
+        else assert(false);
+        // type_kind *ret_type = (type_kind*)FuncDef->func_type->accept(this);
+        // func->ty = *ret_type;
         // 如果函数有形参列表，那么递归处理函数的形参列表
         if (FuncDef->type == FuncDefAST::HAS_PARAMS) {
             func->params = (slice_ptr)FuncDef->funcfparams->accept(this);
@@ -199,6 +202,7 @@ class GenIR : public Visitor {
         return NULL;
     }
     void *visit(DeclAST *Decl) {
+        
         if (Decl->type == DeclAST::CON_DECL) Decl->constdecl->accept(this);
         else if (Decl->type == DeclAST::VAR_DECL) Decl->vardecl->accept(this);
         return NULL;
@@ -235,7 +239,6 @@ class GenIR : public Visitor {
         return NULL;
     }
     void *visit(VarDeclAST *VarDecl) {
-        
         if (VarDecl->btype == "int") tr->ty_cur.tag = KOOPA_TYPE_INT32;
         else {
             printf("There is an exception in visit of VarDecl!\n");
@@ -291,10 +294,12 @@ class GenIR : public Visitor {
                     global_val->ty.tag = tr->ty_cur.tag;
                     global_val->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
                     global_val->kind.tag = IR_GLOBAL_ALLOC;
+                    global_val->kind.data.global_alloc.init = tr->NewValue();
                     global_val->kind.data.global_alloc.init->ty.tag = tr->ty_cur.tag;
                     global_val->kind.data.global_alloc.init->kind.tag = IR_INTEGER;
                     global_val->kind.data.global_alloc.init->kind.data.integer.value = 0;
                     tr->AddGlobalValue(global_val);
+                    bt.current->symtable[VarDef->ident].val_p = (void*)global_val;
                 }
             }
             else {
@@ -303,6 +308,7 @@ class GenIR : public Visitor {
             }
         }
         else if (VarDef->type == VarDefAST::HAS_VALUE) {
+
             if (tr->ty_cur.tag == KOOPA_TYPE_INT32) {
                 // 首先将变量添加到符号表中
                 bt.current->symtable[VarDef->ident].ty = "i32";
@@ -350,10 +356,13 @@ class GenIR : public Visitor {
                     global_val->ty.tag = tr->ty_cur.tag;
                     global_val->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
                     global_val->kind.tag = IR_GLOBAL_ALLOC;
+                    global_val->kind.data.global_alloc.init = tr->NewValue();
                     global_val->kind.data.global_alloc.init->ty.tag = tr->ty_cur.tag;
+                    printf("Here is oK!\n");
                     global_val->kind.data.global_alloc.init->kind.tag = IR_INTEGER;
                     global_val->kind.data.global_alloc.init->kind.data.integer.value = VarDef->initval->get_value();
                     tr->AddGlobalValue(global_val);
+                    bt.current->symtable[VarDef->ident].val_p = (void*)global_val;
                 }
             }
             else {

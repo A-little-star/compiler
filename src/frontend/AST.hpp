@@ -66,14 +66,15 @@ class CompItemAST : public BaseAST {
 class FuncDefAST : public BaseAST {
     public:
         enum {NO_PARAMS, HAS_PARAMS} type;
-        std::unique_ptr<BaseAST> func_type;
+        // std::unique_ptr<BaseAST> func_type;
+        std::string func_type;
         std::string ident;
         std::unique_ptr<BaseAST> block;
         std::unique_ptr<BaseAST> funcfparams;
 
         void Dump() const override {
             std::cout << "FuncDef {\n";
-            func_type->Dump();
+            // func_type->Dump();
             block->Dump();
             std::cout << "}\n";
         }

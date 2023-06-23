@@ -5,6 +5,10 @@
 #include "../midend/xc.hpp"
 
 extern std::unordered_map<value_ptr, int> off_map;
+extern std::unordered_map<value_ptr, int> arg_off_map;
+extern std::unordered_map<func_ptr, int> has_call;
+static bool func_cur_has_call = false;
+std::string func_name;
 static int offset = 0;
 
 std::string regs[31] = {
@@ -41,7 +45,6 @@ void ir2riscv(const prog_ptr prog, std::ostream &os) {
 
 void GenRisc(const prog_ptr prog, std::ostream &os) {
     GenRisc(prog->values, os);
-    os << "  .text\n";
     GenRisc(prog->funcs, os);
 }
 
@@ -65,15 +68,30 @@ void GenRisc(const slice_ptr slice, std::ostream &os) {
 }
 
 void GenRisc(const func_ptr func, std::ostream &os) {
-    os << "  .globl main\n";
+    os << "  .text\n  .globl ";
+    func_name = func->name.substr(1);
+    os << func_name;
+    os << "\n";
     offset = CalStackMem(func);
-    GenRisc(func->bbs, os);
+    // GenRisc(func->params, os);
+    printf("%d\n", has_call[func]);
+    if (has_call[func]) {
+        func_cur_has_call = true;
+        // printf("here\n");
+        // os << "  sw ra, " << offset - 4 << "(sp)" << std::endl;
+        GenRisc(func->bbs, os);
+        func_cur_has_call = false;
+    }
+    else 
+        GenRisc(func->bbs, os);
 }
 
 void GenRisc(const basic_block_ptr bb, std::ostream &os) {
     if (bb->name == "%entry") {
-        os << "main:\n";
-        os << "  addi sp, sp, " << std::to_string(-offset) << std::endl;
+        os << func_name << ":\n";
+        // os << "main:\n";
+        if (offset != 0) os << "  addi sp, sp, " << std::to_string(-offset) << std::endl;
+        if (func_cur_has_call) os << "  sw ra, " << offset - 4 << "(sp)" << std::endl;
     }
     else {
         os << bb->name.substr(1) << ":\n";
@@ -97,15 +115,22 @@ void GenRisc(const value_ptr val, std::ostream &os) {
         }
         case IR_STORE:
         {
-            if (kind.data.store.value->kind.tag == IR_INTEGER) {
-                os << "  li t0, " << std::to_string(kind.data.store.value->kind.data.integer.value) << std::endl;
-            }
-            else if (kind.data.store.value->kind.tag == IR_BINARY || kind.data.store.value->kind.tag == IR_LOAD) {
-                os << "  lw t0, " << std::to_string(off_map[kind.data.store.value]) << "(sp)" << std::endl;
-            }
-            else {
-                printf("There is an exception in visit of IR_STORE of GenRisc!\n");
-                assert(false);
+            switch (kind.data.store.value->kind.tag) {
+                case IR_INTEGER: os << "  li t0, " << std::to_string(kind.data.store.value->kind.data.integer.value) << std::endl; break;
+                case IR_LOAD:
+                case IR_BINARY:
+                case IR_CALL: os << "  lw t0, " << std::to_string(off_map[kind.data.store.value]) << "(sp)" << std::endl; break;
+                case IR_FUNC_ARG: {
+                    if (kind.data.store.value->kind.data.func_arg.index <= 8) {
+                        os << "  sw a" << kind.data.store.value->kind.data.func_arg.index - 1 << ", " << off_map[kind.data.store.dest] << "(sp)" << std::endl;
+                        return;
+                    }
+                    else {
+                        os << "  lw t0, " << offset + (kind.data.store.value->kind.data.func_arg.index - 8) * 4 << "(sp)" << std::endl;
+                    }
+                    break;
+                }
+                default: assert(false);
             }
             os << "  sw t0, " << std::to_string(off_map[kind.data.store.dest]) << "(sp)" << std::endl;
             break;
@@ -115,6 +140,7 @@ void GenRisc(const value_ptr val, std::ostream &os) {
             switch (kind.data.branch.cond->kind.tag) {
                 case IR_INTEGER: os << "  li t0, " << std::to_string(kind.data.branch.cond->kind.data.integer.value) << std::endl; break;
                 case IR_BINARY:
+                case IR_CALL:
                 case IR_LOAD: os << "  lw t0, " << std::to_string(off_map[kind.data.branch.cond]) << "(sp)" << std::endl; break;
                 default: break;
             }
@@ -128,17 +154,66 @@ void GenRisc(const value_ptr val, std::ostream &os) {
             os << "  j " << kind.data.jump.target->name.substr(1) << std::endl;
             break;
         }
+        case IR_CALL:
+        {
+            // break;
+            // printf("args number: %d\n", kind.data.call.args->len);
+            for (size_t i = 0; i < kind.data.call.args->len; i ++ ) {
+                const value_ptr arg = (value_ptr)kind.data.call.args->buffer[i];
+                if (i < 8) {
+                    switch (arg->kind.tag) {
+                        case IR_INTEGER: os << "  li a" << i << ", " << arg->kind.data.integer.value << std::endl; break;
+                        case IR_BINARY:
+                        case IR_LOAD:
+                        case IR_CALL: os << "  lw a" << i << ", " << off_map[arg] << "(sp)" << std::endl; break;
+                        case IR_FUNC_ARG: {
+                            os << "  lw a" << i << ", " << off_map[arg] << "(sp)" << std::endl; break;
+                        }
+                        default: assert(false);
+                    }
+                }
+                else {
+                    switch (arg->kind.tag) {
+                        case IR_INTEGER: {
+                            os << "  li t0, " << arg->kind.data.integer.value << std::endl;
+                            os << "  sw t0, " << arg_off_map[arg] << "(sp)" << std::endl;
+                            break;
+                        }
+                        case IR_BINARY:
+                        case IR_LOAD:
+                        case IR_CALL:
+                        case IR_FUNC_ARG: {
+                            os << "  lw t" << i << ", " << off_map[arg] << "(sp)" << std::endl;
+                            os << "  sw t" << i << ", " << arg_off_map[arg] << "(sp)" << std::endl;
+                            break;
+                        }
+                        default: assert(false);
+                    }
+                }
+            }
+            os << "  call " << kind.data.call.callee->name.substr(1) << std::endl;
+            if (kind.data.call.callee->ty.tag == KOOPA_TYPE_INT32)
+                os << "  sw a0, " << off_map[val] << "(sp)" << std::endl;
+            break;
+        }
         case IR_RETURN:
         {
-            if (kind.data.ret.value->kind.tag == IR_INTEGER) {
-                os << "  li a0, " << kind.data.ret.value->kind.data.integer.value << std::endl;
+            if (kind.data.ret.value == NULL) {
+                if (func_cur_has_call) {
+                    os << "  lw ra, " << offset - 4 << "(sp)" << std::endl;
+                }
+                os << "  ret\n";
+                break;
             }
-            else if (kind.data.ret.value->kind.tag == IR_BINARY || kind.data.ret.value->kind.tag == IR_LOAD) {
-                os << "  lw a0, " << std::to_string(off_map[kind.data.ret.value]) << "(sp)" << std::endl;
+            switch (kind.data.ret.value->kind.tag) {
+                case IR_INTEGER: os << "  li a0, " << kind.data.ret.value->kind.data.integer.value << std::endl; break;
+                case IR_LOAD:
+                case IR_BINARY:
+                // case 49:
+                case IR_CALL: os << "  lw a0, " << off_map[kind.data.ret.value] << "(sp)" << std::endl; break;
+                default: assert(false);
             }
-            else {
-                printf("There is a exception in GenRisc of value_ptr!\n");
-            }
+            if (func_cur_has_call) os << "  lw ra, " << offset - 4 << "(sp)" << std::endl;
             os << "  addi sp, sp, " << std::to_string(offset) << std::endl;
             os << "  ret\n";
             break;
@@ -161,27 +236,21 @@ void GenRisc_Binary(const value_ptr val, std::ostream &os) {
     std::string reg_s1, reg_s2, op;
 
     // 准备第一个操作数
-    if (lhs->kind.tag == IR_INTEGER) {
-        os << "  li t0, " << std::to_string(lhs->kind.data.integer.value) << std::endl;
-    }
-    else if (lhs->kind.tag == IR_BINARY || lhs->kind.tag == IR_LOAD) {
-        os << "  lw t0, " << std::to_string(off_map[lhs]) << "(sp)" << std::endl;
-    }
-    else {
-        printf("There is an exception in GenRisc_Binary!\n");
-        assert(false);
+    switch (lhs->kind.tag) {
+        case IR_INTEGER: os << "  li t0, " << lhs->kind.data.integer.value << std::endl; break;
+        case IR_LOAD:
+        case IR_BINARY:
+        case IR_CALL: os << "  lw t0, " << off_map[lhs] << "(sp)" << std::endl; break;
+        default: assert(false);
     }
 
     // 准备第二个操作数
-    if (rhs->kind.tag == IR_INTEGER) {
-        os << "  li t1, " << std::to_string(rhs->kind.data.integer.value) << std::endl;
-    }
-    else if (rhs->kind.tag == IR_BINARY || rhs->kind.tag == IR_LOAD) {
-        os << "  lw t1, " << std::to_string(off_map[rhs]) << "(sp)" << std::endl;
-    }
-    else {
-        printf("There is an exception in GenRisc_Binary!\n");
-        assert(false);
+    switch (rhs->kind.tag) {
+        case IR_INTEGER: os << "  li t0, " << rhs->kind.data.integer.value << std::endl; break;
+        case IR_LOAD:
+        case IR_BINARY:
+        case IR_CALL: os << "  lw t0, " << off_map[rhs] << "(sp)" << std::endl; break;
+        default: assert(false);
     }
 
     // 生成二元运算的主指令

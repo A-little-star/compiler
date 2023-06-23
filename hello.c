@@ -1,12 +1,10 @@
-// int var;
+int half(int x) {
+    return x / 2;
+}
 
-// const int one = 1;
-// const int two = 2;
-
+void f() { }
 
 int main() {
-    int x = 1;
-    int y = x + 1;
-    return x;
+    f();
+    return half(10);
 }
-int x = 1;

@@ -44,9 +44,9 @@ using namespace std;
 %token <int_val> INT_CONST
 
 // 非终结符的类型定义
-%type <ast_val> CompItems CompItem FuncDef FuncType FuncFParams FuncFParam FuncRParams Block Stmt OpenStmt ClosedStmt NonIfStmt LessStmt Exp PrimaryExp UnaryExp MulExp AddExp RelExp EqExp LAndExp LOrExp BlockItems BlockItem Decl ConstDecl ConstDefs ConstDef ConstInitVal ConstExp
+%type <ast_val> CompItems CompItem FuncDef FuncFParams FuncFParam FuncRParams Block Stmt OpenStmt ClosedStmt NonIfStmt LessStmt Exp PrimaryExp UnaryExp MulExp AddExp RelExp EqExp LAndExp LOrExp BlockItems BlockItem Decl ConstDecl ConstDefs ConstDef ConstInitVal ConstExp
 %type <ast_val> VarDecl VarDefs VarDef InitVal
-%type <str_val> UnaryOp RelOp EqOp LAndOp LOrOp BType LVal
+%type <str_val> UnaryOp RelOp EqOp LAndOp LOrOp LVal
 %type <int_val> Number
 
 
@@ -81,14 +81,12 @@ CompItems
 CompItem
   // :
   : Decl {
-    printf("CompItem Decl\n");
     auto ast = new CompItemAST();
     ast->type = CompItemAST::DECL;
     ast->decl = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
   | FuncDef {
-    printf("CompItem FuncDef\n");
     auto ast = new CompItemAST();
     ast->type = CompItemAST::FUNC;
     ast->funcdef = unique_ptr<BaseAST>($1);
@@ -107,19 +105,37 @@ CompItem
 // 虽然此处你看不出用 unique_ptr 和手动 delete 的区别, 但当我们定义了 AST 之后
 // 这种写法会省下很多内存管理的负担
 FuncDef
-  : FuncType IDENT '(' ')' Block {
+  : INT IDENT '(' ')' Block {
     auto ast = new FuncDefAST();
     ast->type = FuncDefAST::NO_PARAMS;
-    ast->func_type = unique_ptr<BaseAST>($1);
+    ast->func_type = "int";
     ast->ident = *unique_ptr<string>($2);
     ast->funcfparams = NULL;
     ast->block = unique_ptr<BaseAST>($5);
     $$ = ast;
   }
-  | FuncType IDENT '(' FuncFParams ')' Block {
+  | INT IDENT '(' FuncFParams ')' Block {
     auto ast = new FuncDefAST();
     ast->type = FuncDefAST::HAS_PARAMS;
-    ast->func_type = unique_ptr<BaseAST>($1);
+    ast->func_type = "int";
+    ast->ident = *unique_ptr<string>($2);
+    ast->funcfparams = unique_ptr<BaseAST>($4);
+    ast->block = unique_ptr<BaseAST>($6);
+    $$ = ast;
+  }
+  | VOID IDENT '(' ')' Block {
+    auto ast = new FuncDefAST();
+    ast->type = FuncDefAST::NO_PARAMS;
+    ast->func_type = "void";
+    ast->ident = *unique_ptr<string>($2);
+    ast->funcfparams = NULL;
+    ast->block = unique_ptr<BaseAST>($5);
+    $$ = ast;
+  }
+  | VOID IDENT '(' FuncFParams ')' Block {
+    auto ast = new FuncDefAST();
+    ast->type = FuncDefAST::HAS_PARAMS;
+    ast->func_type = "int";
     ast->ident = *unique_ptr<string>($2);
     ast->funcfparams = unique_ptr<BaseAST>($4);
     ast->block = unique_ptr<BaseAST>($6);
@@ -127,19 +143,40 @@ FuncDef
   }
   ;
 
+// FuncDef
+//   : FuncType IDENT '(' ')' Block {
+//     auto ast = new FuncDefAST();
+//     ast->type = FuncDefAST::NO_PARAMS;
+//     ast->func_type = unique_ptr<BaseAST>($1);
+//     ast->ident = *unique_ptr<string>($2);
+//     ast->funcfparams = NULL;
+//     ast->block = unique_ptr<BaseAST>($5);
+//     $$ = ast;
+//   }
+//   | FuncType IDENT '(' FuncFParams ')' Block {
+//     auto ast = new FuncDefAST();
+//     ast->type = FuncDefAST::HAS_PARAMS;
+//     ast->func_type = unique_ptr<BaseAST>($1);
+//     ast->ident = *unique_ptr<string>($2);
+//     ast->funcfparams = unique_ptr<BaseAST>($4);
+//     ast->block = unique_ptr<BaseAST>($6);
+//     $$ = ast;
+//   }
+//   ;
+
 // 同上, 不再解释
-FuncType
-  : INT {
-    auto ast = new FuncTypeAST();
-    ast->type = "int";
-    $$ = ast;
-  }
-  | VOID {
-    auto ast = new FuncTypeAST();
-    ast->type = "void";
-    $$ = ast;
-  }
-  ;
+// FuncType
+//   : INT {
+//     auto ast = new FuncTypeAST();
+//     ast->type = "int";
+//     $$ = ast;
+//   }
+//   | VOID {
+//     auto ast = new FuncTypeAST();
+//     ast->type = "void";
+//     $$ = ast;
+//   }
+//   ;
 
 FuncFParams
   : FuncFParams ',' FuncFParam {
@@ -155,9 +192,15 @@ FuncFParams
   ;
 
 FuncFParam
-  : BType IDENT {
+  // : BType IDENT {
+  //   auto ast = new FuncFParamAST();
+  //   ast->btype = *unique_ptr<string>($1);
+  //   ast->ident = *unique_ptr<string>($2);
+  //   $$ = ast;
+  // }
+  : INT IDENT {
     auto ast = new FuncFParamAST();
-    ast->btype = *unique_ptr<string>($1);
+    ast->btype = "int";
     ast->ident = *unique_ptr<string>($2);
     $$ = ast;
   }
@@ -212,7 +255,6 @@ Decl
     $$ = ast;
   }
   | VarDecl {
-    printf("Decl:VarDecl\n");
     auto ast = new DeclAST();
     ast->type = DeclAST::VAR_DECL;
     ast->vardecl = unique_ptr<BaseAST>($1);
@@ -221,19 +263,25 @@ Decl
   ;
 
 ConstDecl
-  : CONST BType ConstDefs ';' {
+  // : CONST BType ConstDefs ';' {
+  //   auto ast = new ConstDeclAST();
+  //   ast->btype = *unique_ptr<string>($2);
+  //   ast->constdefs = unique_ptr<BaseAST>($3);
+  //   $$ = ast;
+  // }
+  : CONST INT ConstDefs ';' {
     auto ast = new ConstDeclAST();
-    ast->btype = *unique_ptr<string>($2);
+    ast->btype = "int";
     ast->constdefs = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
   ;
 
-BType
-  : INT {
-    $$ = new string("int");
-  }
-  ;
+// BType
+//   : INT {
+//     $$ = new string("int");
+//   }
+//   ;
 
 ConstDefs
   : ConstDefs ',' ConstDef {
@@ -266,9 +314,15 @@ ConstInitVal
   ;
 
 VarDecl
-  : BType VarDefs ';' {
+  // : BType VarDefs ';' {
+  //   auto ast = new VarDeclAST();
+  //   ast->btype = *unique_ptr<string>($1);
+  //   ast->vardefs = unique_ptr<BaseAST>($2);
+  //   $$ = ast;
+  // }
+  : INT VarDefs ';' {
     auto ast = new VarDeclAST();
-    ast->btype = *unique_ptr<string>($1);
+    ast->btype = "int";
     ast->vardefs = unique_ptr<BaseAST>($2);
     $$ = ast;
   }

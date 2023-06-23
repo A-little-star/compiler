@@ -38,6 +38,7 @@ int main(int argc, const char *argv[]) {
   unique_ptr<BaseAST> ast;
   auto ret = yyparse(ast);
   assert(!ret);
+  printf("AST is built successfully\n");
 
   if (strcmp(mode, "-ast") == 0) {
     ast->Dump();
@@ -97,6 +98,58 @@ int main(int argc, const char *argv[]) {
         cout << line << endl;
       }
       file_i.close();
+    }
+    else
+      cout << "main.cpp: Unable to create the input file." << endl;
+    
+    delete v;
+    v = NULL;
+    FreeMem(prog);
+  }
+  else if (strcmp(mode, "-all") == 0) {
+    // 构造一个生成IR的Visitor类，调用accept()方法生成数据结构形式的koopa IR
+    auto v = new GenIR();
+    prog_ptr prog = (prog_ptr)ast->accept(v);
+
+    // 遍历数据结构形式的koopa IR，转化成文本形式输出到output文件中
+    ofstream file_o(output);
+    if (file_o.is_open()) {
+      irDS2Text(prog, file_o);
+      file_o.close();
+    }
+    else 
+      cout << "main.cpp: Unable to create the output file." << endl;
+
+    // 将output文件中的内容打印出来显示
+    ifstream file_i(output);
+    if (file_i.is_open()) {
+      string line;
+      while (getline(file_i, line)) {
+        cout << line << endl;
+      }
+      file_i.close();
+    }
+    else
+      cout << "main.cpp: Unable to create the input file." << endl;
+
+
+    // 遍历数据结构形式的IR，生成RISC-V汇编
+    ofstream file_o2(output);
+    if (file_o2.is_open()) {
+      ir2riscv(prog, file_o2);
+      file_o2.close();
+    }
+    else 
+      cout << "main.cpp: Unable to create the output file." << endl;
+
+    // 将output文件中的内容打印出来显示
+    ifstream file_i2(output);
+    if (file_i2.is_open()) {
+      string line;
+      while (getline(file_i2, line)) {
+        cout << line << endl;
+      }
+      file_i2.close();
     }
     else
       cout << "main.cpp: Unable to create the input file." << endl;
