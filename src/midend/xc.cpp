@@ -4,6 +4,9 @@
 #include <assert.h>
 #include "xc.hpp"
 
+// 状态量，表示当前是否正在处理参数
+static bool is_param;
+
 // 函数声明
 // IR生成部分
 void GenCode(const prog_ptr prog, std::ostream &os);
@@ -26,6 +29,15 @@ void irDS2Text(const prog_ptr prog, std::ostream &os) {
 }
 
 void GenCode(const prog_ptr prog, std::ostream &os) {
+    os << "decl @getint(): i32\n";
+    os << "decl @getch(): i32\n";
+    os << "decl @getarray(*i32): i32\n";
+    os << "decl @putint(i32)\n";
+    os << "decl @putch(i32)\n";
+    os << "decl @putarray(i32, *i32)\n";
+    os << "decl @starttime()\n";
+    os << "decl @stoptime()\n";
+
     GenCode(prog->values, os);
     os << std::endl;
     GenCode(prog->funcs, os);
@@ -53,9 +65,9 @@ void GenCode(const slice_ptr slice, std::ostream &os) {
 void GenCode(const func_ptr func, std::ostream &os) {
     os << "fun " << func->name << "(";
     GenCode(func->params, os);
-    os << "): ";
-    if (func->ty.tag == KOOPA_TYPE_INT32) os << "i32";
-    else if (func->ty.tag == KOOPA_TYPE_UNIT) ;
+    os << ")";
+    if (func->ty.tag == KOOPA_TYPE_INT32) os << ": i32";
+    // else if (func->ty.tag == KOOPA_TYPE_UNIT) ;
     os << " {\n";
     GenCode(func->bbs, os);
     os << "}\n";
@@ -71,7 +83,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
     switch (kind.tag) {
         case IR_INTEGER:
         {
-            os << std::to_string(kind.data.integer.value);
+            os << kind.data.integer.value;
             break;
         }
         case IR_FUNC_ARG:
@@ -151,10 +163,22 @@ void GenCode(const value_ptr val, std::ostream &os) {
         }
         case IR_CALL:
         {
+            is_param = true;
             if (val->ty.tag == KOOPA_TYPE_UNIT) {
                 os << "  call " << val->kind.data.call.callee->name;
                 os << "(";
-                GenCode(val->kind.data.call.args, os);
+                for (size_t i = 0; i < val->kind.data.call.args->len; i ++ ) {
+                    if (i > 0) os << ", ";
+                    value_ptr ptr = (value_ptr)val->kind.data.call.args->buffer[i];
+                    switch (ptr->kind.tag) {
+                        case IR_INTEGER: GenCode(ptr, os); break;
+                        case IR_CALL:
+                        case IR_BINARY:
+                        case IR_LOAD: os << "%" << val_map[ptr]; break;
+                        case IR_FUNC_ARG: os << ptr->name; break;
+                        default: assert(false);
+                    }
+                }
                 os << ")" << std::endl;
             }
             else if (val->ty.tag == KOOPA_TYPE_INT32) {
@@ -177,6 +201,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 }
                 os << ")" << std::endl;
             }
+            is_param = false;
             break;
         }
         case IR_RETURN:
@@ -185,7 +210,6 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 os << "  ret\n";
                 break;
             }
-            printf("%d\n", kind.data.ret.value->kind.tag);
             switch (kind.data.ret.value->kind.tag) {
                 case IR_INTEGER: os << "  ret " << kind.data.ret.value->kind.data.integer.value << std::endl; break;
                 case IR_CALL:

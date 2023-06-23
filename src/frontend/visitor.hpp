@@ -3,7 +3,11 @@
 
 #include <assert.h>
 #include "../midend/xc.hpp"
-// #include "AST.hpp"
+#include <unordered_map>
+
+extern std::unordered_map<value_ptr, value_ptr> param2value;
+extern std::unordered_map<std::string, func_ptr> func_map;
+
 class BaseAST;
 class CompUnitAST;
 class CompItemsAST;
@@ -89,7 +93,7 @@ class Translate_Helper {
             return bb;
         }
 
-        func_ptr NewFuncion() {
+        func_ptr NewFunction() {
             func_ptr func = new function;
             func->bbs = new slice;
             func->bbs->len = 0;
@@ -126,20 +130,23 @@ class Translate_Helper {
             for (size_t i = 0; i < func_cur->params->len; i ++ ) {
                 value_ptr param = (value_ptr)func_cur->params->buffer[i];
                 if (pn == param->name) {
-                    value_ptr v_alloc = NewValue();
-                    v_alloc->name = "%" + pn.substr(1);
-                    v_alloc->ty.tag = param->ty.tag;
-                    v_alloc->kind.tag = IR_ALLOC;
-                    AddValue(v_alloc);
-                    value_ptr v_store = NewValue();
-                    v_store->kind.tag = IR_STORE;
-                    v_store->kind.data.store.dest = v_alloc;
-                    v_store->kind.data.store.value = param;
-                    AddValue(v_store);
+                    if (!param2value.count(param)) {
+                        value_ptr v_alloc = NewValue();
+                        v_alloc->name = "%" + pn.substr(1);
+                        v_alloc->ty.tag = param->ty.tag;
+                        v_alloc->kind.tag = IR_ALLOC;
+                        AddValue(v_alloc);
+                        value_ptr v_store = NewValue();
+                        v_store->kind.tag = IR_STORE;
+                        v_store->kind.data.store.dest = v_alloc;
+                        v_store->kind.data.store.value = param;
+                        AddValue(v_store);
+                        param2value[param] = v_alloc;
+                    }
                     value_ptr v_load = NewValue();
-                    v_load->ty.tag = v_alloc->ty.tag;
+                    v_load->ty.tag = param2value[param]->ty.tag;
                     v_load->kind.tag = IR_LOAD;
-                    v_load->kind.data.load.src = v_alloc;
+                    v_load->kind.data.load.src = param2value[param];
                     AddValue(v_load);
                     val = v_load;
                     // val = param;
@@ -191,6 +198,76 @@ class Translate_Helper {
             func_cur->bbs->buffer.push_back(bb);
             func_cur->bbs->len ++;
             func_cur->bbs->kind = RISK_BASIC_BLOCK;
+        }
+
+        void AddLibFunc() {
+            func_ptr getint = NewFunction();
+            getint->name = "@getint";
+            getint->ty.tag = KOOPA_TYPE_INT32;
+            // AddFunc(getint);
+            func_map["getint"] = getint;
+
+            func_ptr getch = NewFunction();
+            getch->name = "@getch";
+            getch->ty.tag = KOOPA_TYPE_INT32;
+            // AddFunc(getch);
+            func_map["getch"] = getch;
+
+            func_ptr getarray = NewFunction();
+            getarray->name = "@getarray";
+            getarray->ty.tag = KOOPA_TYPE_INT32;
+            value_ptr getarray_p = NewValue();
+            getarray_p->ty.tag = KOOPA_TYPE_POINTER;
+            getarray_p->kind.tag = IR_FUNC_ARG;
+            getarray_p->kind.data.func_arg.index = 1;
+            InsertParam(getarray_p, getarray->params);
+            // AddFunc(getarray);
+            func_map["getarray"] = getarray;
+
+            func_ptr putint = NewFunction();
+            putint->name = "@putint";
+            putint->ty.tag = KOOPA_TYPE_UNIT;
+            value_ptr putint_p = NewValue();
+            putint_p->ty.tag = KOOPA_TYPE_INT32;
+            putint_p->kind.tag = IR_FUNC_ARG;
+            putint_p->kind.data.func_arg.index = 1;
+            InsertParam(putint_p, putint->params);
+            func_map["putint"] = putint;
+
+            func_ptr putch = NewFunction();
+            putch->name = "@putch";
+            putch->ty.tag = KOOPA_TYPE_UNIT;
+            value_ptr putch_p = NewValue();
+            putch_p->ty.tag = KOOPA_TYPE_INT32;
+            putch_p->kind.tag = IR_FUNC_ARG;
+            putch_p->kind.data.func_arg.index = 1;
+            InsertParam(putch_p, putch->params);
+            func_map["putch"] = putch;
+
+            func_ptr putarray = NewFunction();
+            putarray->name = "@putarray";
+            putarray->ty.tag = KOOPA_TYPE_UNIT;
+            value_ptr putarray_p1 = NewValue();
+            putarray_p1->ty.tag = KOOPA_TYPE_INT32;
+            putarray_p1->kind.tag = IR_FUNC_ARG;
+            putarray_p1->kind.data.func_arg.index = 1;
+            InsertParam(putarray_p1, putarray->params);
+            value_ptr putarray_p2 = NewValue();
+            putarray_p2->ty.tag = KOOPA_TYPE_POINTER;
+            putarray_p2->kind.tag = IR_FUNC_ARG;
+            putarray_p2->kind.data.func_arg.index = 2;
+            InsertParam(putarray_p2, putarray->params);
+            func_map["putarray"] = putarray;
+
+            func_ptr starttime = NewFunction();
+            starttime->ty.tag = KOOPA_TYPE_UNIT;
+            starttime->name = "@starttime";
+            func_map["starttime"] = starttime;
+
+            func_ptr stoptime = NewFunction();
+            stoptime->ty.tag = KOOPA_TYPE_UNIT;
+            stoptime->name = "@stoptime";
+            func_map["stoptime"] = stoptime;
         }
 };
 

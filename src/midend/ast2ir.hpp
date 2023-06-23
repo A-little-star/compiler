@@ -8,11 +8,11 @@
 // #include "visitor.hpp"
 
 class Visitor;
-// extern prog_ptr prog;
 static int bb_id;
 std::unordered_map<StmtAST*, basic_block_ptr> end_map;
 std::unordered_map<std::string, int> rep_map;
 std::unordered_map<std::string, func_ptr> func_map;
+std::unordered_map<value_ptr, value_ptr> param2value;
 
 class GenIR : public Visitor {
     void *visit(CompUnitAST *CompUnit) {
@@ -36,6 +36,9 @@ class GenIR : public Visitor {
         root_lt->loop_end = NULL;
         lt.root = root_lt;
         lt.current = root_lt;
+
+        // 声明SysY库中的函数
+        tr->AddLibFunc();
         // 递归调用program下的funcdef
         CompUnit->compitems->accept(this);
         
@@ -61,15 +64,12 @@ class GenIR : public Visitor {
             tr->is_global = true;
             CompItem->decl->accept(this);
             tr->is_global = false;
-            // tr->AddGlobalValue(global_val);
-            // printf("There is an exception in visit of CompItemAST!\n");
-            // assert(false);
         }
         return NULL;
     }
     void *visit(FuncDefAST *FuncDef) {
         // 创建一个新的函数类型，并为其成员变量分配空间
-        func_ptr func = tr->NewFuncion();
+        func_ptr func = tr->NewFunction();
         // 进入funcdef之后，需要开启一个新的作用域
         BlockTreeNode *btn = new BlockTreeNode;
         btn->symtable = bt.current->symtable;
@@ -104,7 +104,8 @@ class GenIR : public Visitor {
         // 将该基本块添加到所在的函数中
         tr->AddBasicBlock(bb);
 
-        
+        // 更新func_map
+        func_map[FuncDef->ident] = func;
         
         // 递归处理block语句块
         FuncDef->block->accept(this);
@@ -116,8 +117,9 @@ class GenIR : public Visitor {
             tr->AddValue(ret);
         }
         // 更新func_map
-        func_map[FuncDef->ident] = func;
+        // func_map[FuncDef->ident] = func;
         // 释放空间
+        bt.current = btn->father_block;
         btn->symtable.clear();
         delete btn;
         btn = NULL;
@@ -358,7 +360,6 @@ class GenIR : public Visitor {
                     global_val->kind.tag = IR_GLOBAL_ALLOC;
                     global_val->kind.data.global_alloc.init = tr->NewValue();
                     global_val->kind.data.global_alloc.init->ty.tag = tr->ty_cur.tag;
-                    printf("Here is oK!\n");
                     global_val->kind.data.global_alloc.init->kind.tag = IR_INTEGER;
                     global_val->kind.data.global_alloc.init->kind.data.integer.value = VarDef->initval->get_value();
                     tr->AddGlobalValue(global_val);
@@ -664,6 +665,7 @@ class GenIR : public Visitor {
     void *visit(LessStmtAST *LessStmt) {
         value_ptr val = tr->NewValue();
         if (LessStmt->type == LessStmtAST::RETURN) {
+            
             // 目前只处理return指令
             val->kind.tag = IR_RETURN;
 
@@ -752,6 +754,7 @@ class GenIR : public Visitor {
                 return val;
             }
             else {
+                printf("Here!!!\n");
                 printf("There is an undefined variable was used!\n");
                 assert(false);
             }

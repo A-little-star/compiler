@@ -1,10 +1,25 @@
-int half(int x) {
-    return x / 2;
+int a = 10;
+
+int inc() {
+    a = a + 1;
+    return a;
 }
 
-void f() { }
+void print_a() {
+    putint(a);
+    putch(10);
+}
 
 int main() {
-    f();
-    return half(10);
+    int i = 0;
+    while (i < 10) {
+        inc();
+        int a = 1;
+        a = a + 2;
+        putint(a);
+        putch(10);
+        print_a();
+        i = i + 1;
+    }
+    return 0;
 }

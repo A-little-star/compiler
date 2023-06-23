@@ -6,6 +6,8 @@
 #include <unordered_map>
 #include "visitor.hpp"
 #include "../midend/SymTable.hpp"
+
+
 class BaseAST {
     public:
         virtual ~BaseAST() = default;
@@ -313,6 +315,9 @@ class InitValAST : public BaseAST {
         }
         void *accept(Visitor *v) override {
             return v->visit(this);
+        }
+        int get_value() override {
+            return exp->get_value();
         }
 };
 

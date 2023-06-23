@@ -44,7 +44,9 @@ void ir2riscv(const prog_ptr prog, std::ostream &os) {
 }
 
 void GenRisc(const prog_ptr prog, std::ostream &os) {
+    os << "  .data\n";
     GenRisc(prog->values, os);
+    os << std::endl;
     GenRisc(prog->funcs, os);
 }
 
@@ -73,12 +75,9 @@ void GenRisc(const func_ptr func, std::ostream &os) {
     os << func_name;
     os << "\n";
     offset = CalStackMem(func);
-    // GenRisc(func->params, os);
     printf("%d\n", has_call[func]);
     if (has_call[func]) {
         func_cur_has_call = true;
-        // printf("here\n");
-        // os << "  sw ra, " << offset - 4 << "(sp)" << std::endl;
         GenRisc(func->bbs, os);
         func_cur_has_call = false;
     }
@@ -107,10 +106,25 @@ void GenRisc(const value_ptr val, std::ostream &os) {
             
             break;
         }
+        case IR_GLOBAL_ALLOC:
+        {
+            os << "  .globl " << val->name.substr(1) << std::endl;
+            os << val->name.substr(1) << ":\n";
+            int value = val->kind.data.global_alloc.init->kind.data.integer.value;
+            if (!value) os << "  .zero 4\n";
+            else os << "  .word " << value << std::endl;
+            break;
+        }
         case IR_LOAD:
         {
-            os << "  lw t0, " << std::to_string(off_map[kind.data.load.src]) << "(sp)" << std::endl;
-            os << "  sw t0, " << std::to_string(off_map[val]) << "(sp)" << std::endl;
+            if (kind.data.load.src->kind.tag == IR_GLOBAL_ALLOC) {
+                os << "  la t0, " << kind.data.load.src->name.substr(1) << std::endl;
+                os << "  lw t0, 0(t0)\n";
+                os << "  sw t0, " << off_map[val] << "(sp)" << std::endl;
+                break;
+            }
+            os << "  lw t0, " << off_map[kind.data.load.src] << "(sp)" << std::endl;
+            os << "  sw t0, " << off_map[val] << "(sp)" << std::endl;
             break;
         }
         case IR_STORE:
@@ -126,13 +140,27 @@ void GenRisc(const value_ptr val, std::ostream &os) {
                         return;
                     }
                     else {
-                        os << "  lw t0, " << offset + (kind.data.store.value->kind.data.func_arg.index - 8) * 4 << "(sp)" << std::endl;
+                        os << "  lw t0, " << offset + (kind.data.store.value->kind.data.func_arg.index - 9) * 4 << "(sp)" << std::endl;
+                        // os << "  lw t0, " << offset + arg_off_map[val] << "(sp)" << std::endl;
                     }
                     break;
                 }
                 default: assert(false);
             }
-            os << "  sw t0, " << std::to_string(off_map[kind.data.store.dest]) << "(sp)" << std::endl;
+            switch (kind.data.store.dest->kind.tag) {
+                case IR_GLOBAL_ALLOC: {
+                    os << "  la t1, " << kind.data.store.dest->name.substr(1) << std::endl;
+                    // os << "  lw t1, 0(t1)\n";
+                    os << "  sw t0, 0(t1)\n";
+                    break;
+                }
+                case IR_LOAD:
+                case IR_BINARY:
+                case IR_ALLOC:
+                case IR_CALL: os << "  sw t0, " << std::to_string(off_map[kind.data.store.dest]) << "(sp)" << std::endl; break;
+                default: assert(false);
+            }
+            // os << "  sw t0, " << std::to_string(off_map[kind.data.store.dest]) << "(sp)" << std::endl;
             break;
         }
         case IR_BRANCH:
@@ -202,6 +230,7 @@ void GenRisc(const value_ptr val, std::ostream &os) {
                 if (func_cur_has_call) {
                     os << "  lw ra, " << offset - 4 << "(sp)" << std::endl;
                 }
+                if (offset) os << "  addi sp, sp, " << offset << std::endl;
                 os << "  ret\n";
                 break;
             }
@@ -246,10 +275,10 @@ void GenRisc_Binary(const value_ptr val, std::ostream &os) {
 
     // 准备第二个操作数
     switch (rhs->kind.tag) {
-        case IR_INTEGER: os << "  li t0, " << rhs->kind.data.integer.value << std::endl; break;
+        case IR_INTEGER: os << "  li t1, " << rhs->kind.data.integer.value << std::endl; break;
         case IR_LOAD:
         case IR_BINARY:
-        case IR_CALL: os << "  lw t0, " << off_map[rhs] << "(sp)" << std::endl; break;
+        case IR_CALL: os << "  lw t1, " << off_map[rhs] << "(sp)" << std::endl; break;
         default: assert(false);
     }
 

@@ -41,19 +41,25 @@ int CalStackMem(const func_ptr func) {
             value_ptr inst = (value_ptr)bb->insts->buffer[k];
             switch (inst->kind.tag) {
                 case IR_CALL: {
-                    if (inst->ty.tag == KOOPA_TYPE_INT32) off_map[inst] = s + a - 4 * num;
+                    if (inst->ty.tag == KOOPA_TYPE_INT32) {
+                        off_map[inst] = s + a - 4 * num - 4;
+                        num ++;
+                    }
                     for (size_t i = 8; i < inst->kind.data.call.args->len; i ++ ) {
                         value_ptr arg = (value_ptr)inst->kind.data.call.args->buffer[i];
-                        arg_off_map[arg] = (i - 9) * 4;
+                        arg_off_map[arg] = (i - 8) * 4;
                     }
                     break;
                 }
                 case IR_ALLOC:
                 case IR_BINARY:
-                case IR_LOAD: off_map[inst] = s + a - 4 * num;
+                case IR_LOAD: {
+                    off_map[inst] = s + a - 4 * num - 4;
+                    num ++;
+                    break;
+                }
                 default: break;
             }
-            num ++;
         }
     }
     return s + r + a;
