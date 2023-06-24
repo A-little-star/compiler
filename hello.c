@@ -1,25 +1,18 @@
-int a = 10;
+int x, y;
+int sum;
 
-int inc() {
-    a = a + 1;
-    return a;
-}
-
-void print_a() {
-    putint(a);
-    putch(10);
+void sum(int n) {
+    for (int i = 1; i <= n; i = i + 1 ) {
+        for (int j = 1; j <= n; j = j + 1 ) {
+            for (int k = 1; k <= n; k = k + 1 )
+                sum = (sum + x) * y;
+        }
+    }
 }
 
 int main() {
-    int i = 0;
-    while (i < 10) {
-        inc();
-        int a = 1;
-        a = a + 2;
-        putint(a);
-        putch(10);
-        print_a();
-        i = i + 1;
-    }
+    x = 1;
+    y = 2;
+    sum(999);
     return 0;
 }
