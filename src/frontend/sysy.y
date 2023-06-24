@@ -135,7 +135,7 @@ FuncDef
   | VOID IDENT '(' FuncFParams ')' Block {
     auto ast = new FuncDefAST();
     ast->type = FuncDefAST::HAS_PARAMS;
-    ast->func_type = "int";
+    ast->func_type = "void";
     ast->ident = *unique_ptr<string>($2);
     ast->funcfparams = unique_ptr<BaseAST>($4);
     ast->block = unique_ptr<BaseAST>($6);

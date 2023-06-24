@@ -81,6 +81,7 @@ class GenIR : public Visitor {
         // 函数名
         func->name = "@" + FuncDef->ident;
         // 递归处理函数的返回值类型
+        std::cout << FuncDef->func_type << std::endl;
         if (FuncDef->func_type == "int") func->ty.tag = KOOPA_TYPE_INT32;
         else if (FuncDef->func_type == "void") func->ty.tag = KOOPA_TYPE_UNIT;
         else assert(false);
@@ -111,6 +112,7 @@ class GenIR : public Visitor {
         FuncDef->block->accept(this);
         // 处理完语句块之后，如果是void返回值函数，添加一条ret指令
         if (func->ty.tag == KOOPA_TYPE_UNIT) {
+            printf("Here is OK!\n");
             value_ptr ret = tr->NewValue();
             ret->kind.tag = IR_RETURN;
             ret->kind.data.ret.value = NULL;
