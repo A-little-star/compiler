@@ -46,7 +46,8 @@ using namespace std;
 // 非终结符的类型定义
 %type <ast_val> CompItems CompItem FuncDef FuncFParams FuncFParam FuncRParams Block Stmt OpenStmt ClosedStmt NonIfStmt LessStmt Exp PrimaryExp UnaryExp MulExp AddExp RelExp EqExp LAndExp LOrExp BlockItems BlockItem Decl ConstDecl ConstDefs ConstDef ConstInitVal ConstExp
 %type <ast_val> VarDecl VarDefs VarDef InitVal
-%type <str_val> UnaryOp RelOp EqOp LAndOp LOrOp LVal
+%type <ast_val> ConstExps Exps LVal
+%type <str_val> UnaryOp RelOp EqOp LAndOp LOrOp
 %type <int_val> Number
 
 
@@ -299,8 +300,17 @@ ConstDefs
 ConstDef
   : IDENT '=' ConstInitVal {
     auto ast = new ConstDefAST();
+    ast->d_type = ConstDefAST::VALUE;
     ast->ident = *unique_ptr<string>($1);
     ast->constinitval = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  | IDENT '[' ConstExp ']' '=' ConstInitVal {
+    auto ast = new ConstDefAST();
+    ast->d_type = ConstDefAST::ARRAY;
+    ast->ident = *unique_ptr<string>($1);
+    ast->constexp = unique_ptr<BaseAST>($3);
+    ast->constinitval = unique_ptr<BaseAST>($6);
     $$ = ast;
   }
   ;
@@ -308,7 +318,33 @@ ConstDef
 ConstInitVal
   : ConstExp {
     auto ast = new ConstInitValAST();
+    ast->d_type = ConstInitValAST::VALUE;
     ast->constexp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | '{' '}' {
+    auto ast = new ConstInitValAST();
+    ast->d_type = ConstInitValAST::ARRAY;
+    ast->constexps = NULL;
+    $$ = ast;
+  }
+  | '{' ConstExps '}' {
+    auto ast = new ConstInitValAST();
+    ast->d_type = ConstInitValAST::ARRAY;
+    ast->constexps = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  ;
+
+ConstExps
+  : ConstExps ',' ConstExp {
+    ConstExpsAST *ast = (ConstExpsAST*)($1);
+    ast->constexps.emplace_back(unique_ptr<BaseAST>($3));
+    $$ = ast;
+  }
+  | ConstExp {
+    auto ast = new ConstExpsAST();
+    ast->constexps.emplace_back(unique_ptr<BaseAST>($1));
     $$ = ast;
   }
   ;
@@ -345,14 +381,33 @@ VarDef
   : IDENT {
     auto ast = new VarDefAST();
     ast->type = VarDefAST::NO_VALUE;
+    ast->d_type = VarDefAST::VALUE;
     ast->ident = *unique_ptr<string>($1);
     $$ = ast;
   }
   | IDENT '=' InitVal {
     auto ast = new VarDefAST();
     ast->type = VarDefAST::HAS_VALUE;
+    ast->d_type = VarDefAST::VALUE;
     ast->ident = *unique_ptr<string>($1);
     ast->initval = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  | IDENT '[' ConstExp ']' {
+    auto ast = new VarDefAST();
+    ast->type = VarDefAST::NO_VALUE;
+    ast->d_type = VarDefAST::ARRAY;
+    ast->ident = *unique_ptr<string>($1);
+    ast->constexp = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  | IDENT '[' ConstExp ']' '=' InitVal {
+    auto ast = new VarDefAST();
+    ast->type = VarDefAST::HAS_VALUE;
+    ast->d_type = VarDefAST::ARRAY;
+    ast->ident = *unique_ptr<string>($1);
+    ast->constexp = unique_ptr<BaseAST>($3);
+    ast->initval = unique_ptr<BaseAST>($6);
     $$ = ast;
   }
   ;
@@ -360,7 +415,33 @@ VarDef
 InitVal
   : Exp {
     auto ast = new InitValAST();
+    ast->d_type = InitValAST::VALUE;
     ast->exp = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  | '{' '}' {
+    auto ast = new InitValAST();
+    ast->d_type = InitValAST::ARRAY;
+    ast->exps = unique_ptr<BaseAST>(new ExpsAST());
+    $$ = ast;
+  }
+  | '{' Exps '}' {
+    auto ast = new InitValAST();
+    ast->d_type = InitValAST::ARRAY;
+    ast->exps = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  ;
+
+Exps
+  : Exps ',' Exp {
+    ExpsAST *ast = (ExpsAST*)($1);
+    ast->exps.emplace_back(unique_ptr<BaseAST>($3));
+    $$ = ast;
+  }
+  | Exp {
+    auto ast = new ExpsAST();
+    ast->exps.emplace_back(unique_ptr<BaseAST>($1));
     $$ = ast;
   }
   ;
@@ -464,7 +545,7 @@ LessStmt
   | LVal '=' Exp {
     auto ast = new LessStmtAST();
     ast->type = LessStmtAST::ASSIGN;
-    ast->lval = *unique_ptr<string>($1);
+    ast->lval = unique_ptr<BaseAST>($1);
     ast->exp = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
@@ -518,7 +599,7 @@ PrimaryExp
   | LVal {
     auto ast = new PrimaryExpAST();
     ast->type = PrimaryExpAST::LVAL;
-    ast->lval = *unique_ptr<string>($1);
+    ast->lval = unique_ptr<BaseAST>($1);
     $$ = ast;
   }
   | Number {
@@ -531,7 +612,17 @@ PrimaryExp
 
 LVal
   : IDENT {
-    $$ = $1;
+    auto ast = new LValAST();
+    ast->d_type = LValAST::VALUE;
+    ast->ident = *unique_ptr<string>($1);
+    $$ = ast;
+  }
+  | IDENT '[' Exp ']' {
+    auto ast = new LValAST();
+    ast->d_type = LValAST::ARRAY;
+    ast->ident = *unique_ptr<string>($1);
+    ast->exp = unique_ptr<BaseAST>($3);
+    $$ = ast;
   }
   ;
 

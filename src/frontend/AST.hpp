@@ -224,7 +224,9 @@ class ConstDefsAST : public BaseAST {
 
 class ConstDefAST : public BaseAST {
     public:
+        enum {VALUE, ARRAY} d_type;
         std::string ident;
+        std::unique_ptr<BaseAST> constexp;
         std::unique_ptr<BaseAST> constinitval;
 
         void Dump() const override {
@@ -240,7 +242,9 @@ class ConstDefAST : public BaseAST {
 
 class ConstInitValAST : public BaseAST {
     public:
+        enum {VALUE, ARRAY} d_type;
         std::unique_ptr<BaseAST> constexp;
+        std::unique_ptr<BaseAST> constexps;
 
         void Dump() const override {
             std::cout << "ConstInitValAST: {\n";
@@ -254,6 +258,18 @@ class ConstInitValAST : public BaseAST {
 
         int get_value() override {
             return constexp->get_value();
+        }
+};
+
+class ConstExpsAST : public BaseAST {
+    public:
+        std::vector<std::unique_ptr<BaseAST>> constexps;
+
+        void Dump() const override {
+
+        }
+        void *accept(Visitor *v) override {
+            return v->visit(this);
         }
 };
 
@@ -291,7 +307,9 @@ class VarDefsAST : public BaseAST {
 class VarDefAST : public BaseAST {
     public:
         enum {NO_VALUE, HAS_VALUE} type;
+        enum {VALUE, ARRAY} d_type;
         std::string ident;
+        std::unique_ptr<BaseAST> constexp;
         std::unique_ptr<BaseAST> initval;
 
         void Dump() const override {
@@ -306,7 +324,9 @@ class VarDefAST : public BaseAST {
 
 class InitValAST : public BaseAST {
     public:
+        enum {VALUE, ARRAY} d_type;
         std::unique_ptr<BaseAST> exp;
+        std::unique_ptr<BaseAST> exps;
 
         void Dump() const override {
             std::cout << "InitValAST: {\n";
@@ -318,6 +338,18 @@ class InitValAST : public BaseAST {
         }
         int get_value() override {
             return exp->get_value();
+        }
+};
+
+class ExpsAST : public BaseAST {
+    public:
+        std::vector<std::unique_ptr<BaseAST>> exps;
+
+        void Dump() const override {
+
+        }
+        void *accept(Visitor *v) override {
+            return v->visit(this);
         }
 };
 
@@ -427,7 +459,8 @@ class LessStmtAST : public BaseAST {
         void 表示空语句（即只有表达式，没有进行赋值，包括";"）
         */
         enum {ASSIGN, RETURN, VOID, BREAK, CONTINUE} type;
-        std::string lval;
+        // std::string lval;
+        std::unique_ptr<BaseAST> lval;
         std::string ret;
         std::unique_ptr<BaseAST> exp;
         std::unique_ptr<BaseAST> stmt;
@@ -442,7 +475,8 @@ class LessStmtAST : public BaseAST {
                 std::cout << "}\n";
             }
             else if (type == ASSIGN) {
-                std::cout << lval;
+                // std::cout << lval;
+                lval->Dump();
                 exp->Dump();
                 std::cout << "}\n";
             }
@@ -494,7 +528,7 @@ class PrimaryExpAST : public BaseAST {
     public:
         enum type {EXP, NUM, LVAL} type;
         std::unique_ptr<BaseAST> exp;
-        std::string lval;
+        std::unique_ptr<BaseAST> lval;
         int number;
 
         void Dump() const override {
@@ -507,7 +541,9 @@ class PrimaryExpAST : public BaseAST {
                 std::cout << "}\n";
             }
             else {
-                std::cout << lval << std::endl;
+                std::cout << "PrimaryExp {\n";
+                lval->Dump();
+                std::cout << "}\n";
             }
         }
         void *accept(Visitor *v) override {
@@ -516,8 +552,27 @@ class PrimaryExpAST : public BaseAST {
 
         int get_value() override {
             if (type == EXP) return exp->get_value();
-            else if (type == LVAL) return bt.current->symtable[lval].value;
+            else if (type == LVAL) return lval->get_value();
             else return number;
+        }
+};
+
+class LValAST : public BaseAST {
+    public:
+        enum {VALUE, ARRAY} d_type;
+        std::string ident;
+        std::unique_ptr<BaseAST> exp;
+
+        void Dump() const override {
+            // std::cout << "LVal: {\n";
+            std::cout << ident;
+            // std::cout << "}\n";
+        }
+        void *accept(Visitor *v) override {
+            return v->visit(this);
+        }
+        int get_value() override {
+            return bt.current->symtable[ident].value;
         }
 };
 

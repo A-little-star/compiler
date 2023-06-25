@@ -9,9 +9,16 @@
 
 enum kind_t {CON, VAR};
 
+enum type_t_tag {I32, ARRAY};
+
+typedef struct type_t {
+    type_t_tag tag;
+    struct type_t *data;
+} type_t;
+
 struct symval{
     // 符号的类型，如i32
-    std::string ty;
+    type_t ty;
     // 符号的数值
     int value;
     // 符号是常量或者变量

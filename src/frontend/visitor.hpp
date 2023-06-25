@@ -31,6 +31,7 @@ class ConstDefsAST;
 class ConstDefAST;
 class ConstInitValAST;
 class ConstExpAST;
+class ConstExpsAST;
 class VarDeclAST;
 class VarDefsAST;
 class VarDefAST;
@@ -45,6 +46,7 @@ class LessStmtAST;
 
 // 表达式类型
 class ExpAST;
+class ExpsAST;
 class PrimaryExpAST;
 class UnaryExpAST;
 class UnaryOpAST;
@@ -54,6 +56,7 @@ class RelExpAST;
 class EqExpAST;
 class LAndExpAST;
 class LOrExpAST;
+class LValAST;
 
 class Translate_Helper {
     public:
@@ -71,6 +74,12 @@ class Translate_Helper {
         int fp_index_cur;
         // 当前变量声明是否处在全局作用域
         bool is_global;
+        // 当前所处理的数组
+        value_ptr arr_cur;
+        // 当前处理的数组长度
+        int arr_len;
+        // 当前处理的LVal名称
+        std::string lval_name_cur;
 
         value_ptr NewValue() {
             // 新建一个value类型，并为其成员变量分配内存空间
@@ -299,8 +308,11 @@ class Visitor {
         virtual void *visit(NonIfStmtAST *) { return NULL; }
         virtual void *visit(LessStmtAST *) { return NULL; }
         virtual void *visit(ConstExpAST *) { return NULL; }
+        virtual void *visit(ConstExpsAST *) { return NULL; }
         virtual void *visit(ExpAST *) { return NULL; }
+        virtual void *visit(ExpsAST *) { return NULL; }
         virtual void *visit(PrimaryExpAST *) { return NULL; }
+        virtual void *visit(LValAST *) { return NULL; }
         virtual void *visit(UnaryExpAST *) { return NULL; }
         virtual void *visit(FuncRParamsAST *) { return NULL; }
         virtual void *visit(MulExpAST *) { return NULL; }

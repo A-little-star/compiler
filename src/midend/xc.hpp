@@ -43,6 +43,8 @@ enum inst_kind_tag {
     IR_LOAD,
     // 存储指令
     IR_STORE,
+    // 获取数组元素
+    IR_GET_ELEM_PTR,
     // 二进制运算
     IR_BINARY,
     // 分支指令
@@ -70,19 +72,19 @@ enum type_kind_tag {
 
 typedef struct type_kind {
     type_kind_tag tag;
-    // union {
-    //     struct {
-    //         struct type_kind *base;
-    //         size_t len;
-    //     } array;
-    //     struct {
-    //         struct type_kind *base;
-    //     } pointer;
-    //     struct {
-    //         slice_ptr params;
-    //         struct type_kind *ret;
-    //     } function;
-    // } data;
+    union {
+        struct {
+            struct type_kind *base;
+            size_t len;
+        } array;
+        struct {
+            struct type_kind *base;
+        } pointer;
+        struct {
+            slice_ptr params;
+            struct type_kind *ret;
+        } function;
+    } data;
 } type_kind;
 
 enum op_t {
@@ -149,6 +151,13 @@ typedef struct {
     value_ptr value;
 } store_t;
 
+typedef struct {
+    // Source.
+    value_ptr src;
+    // Index.
+    value_ptr index;
+} get_elem_ptr_t;
+
 struct basic_block;
 typedef basic_block *basic_block_ptr;
 
@@ -196,6 +205,7 @@ typedef struct {
         global_alloc_t global_alloc;
         load_t load;
         store_t store;
+        get_elem_ptr_t get_elem_ptr;
         binary_t binary;
         branch_t branch;
         jump_t jump;

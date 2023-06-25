@@ -228,9 +228,9 @@ class GenIR : public Visitor {
     }
     void *visit(ConstDefAST *ConstDef) {
         int val = ConstDef->constinitval->get_value();
-        // symtable[ConstDef->ident] = {"i32", val, CON, true};
+        // symtable[ConstDef->ident] = {I32, val, CON, true};
         if (tr->ty_cur.tag == KOOPA_TYPE_INT32) {
-            bt.current->symtable[ConstDef->ident].ty = "i32";
+            bt.current->symtable[ConstDef->ident].ty.tag = I32;
             bt.current->symtable[ConstDef->ident].value = val;
             bt.current->symtable[ConstDef->ident].kind = CON;
             bt.current->symtable[ConstDef->ident].has_value = true;
@@ -258,128 +258,230 @@ class GenIR : public Visitor {
         return NULL;
     }
     void *visit(VarDefAST *VarDef) {
-        if (VarDef->type == VarDefAST::NO_VALUE) {
-            if (tr->ty_cur.tag == KOOPA_TYPE_INT32) {
-                // 首先将变量插入到符号表中
-                bt.current->symtable[VarDef->ident].ty = "i32";
-                bt.current->symtable[VarDef->ident].value = 0;
-                bt.current->symtable[VarDef->ident].kind = VAR;
-                bt.current->symtable[VarDef->ident].has_value = false;
-                rep_map[VarDef->ident] += 1;
+        if (VarDef->d_type == VarDefAST::VALUE) {
+            if (VarDef->type == VarDefAST::NO_VALUE) {
+                if (tr->ty_cur.tag == KOOPA_TYPE_INT32) {
+                    // 首先将变量插入到符号表中
+                    bt.current->symtable[VarDef->ident].ty.tag = I32;
+                    bt.current->symtable[VarDef->ident].value = 0;
+                    bt.current->symtable[VarDef->ident].kind = VAR;
+                    bt.current->symtable[VarDef->ident].has_value = false;
+                    rep_map[VarDef->ident] += 1;
 
-                if (tr->is_global == false) {
-                    // 插入一个alloc指令，将变量分配出来
-                    value_ptr val_dest = tr->NewValue();
-                    val_dest->kind.tag = IR_ALLOC;
-                    if (tr->ty_cur.tag == KOOPA_TYPE_INT32) {
-                        val_dest->kind.data.alloc.ty.tag = KOOPA_TYPE_INT32;
-                        val_dest->ty.tag = KOOPA_TYPE_INT32;
+                    if (tr->is_global == false) {
+                        // 插入一个alloc指令，将变量分配出来
+                        value_ptr val_dest = tr->NewValue();
+                        val_dest->kind.tag = IR_ALLOC;
+                        if (tr->ty_cur.tag == KOOPA_TYPE_INT32) {
+                            val_dest->kind.data.alloc.ty.tag = KOOPA_TYPE_INT32;
+                            val_dest->ty.tag = KOOPA_TYPE_INT32;
+                        }
+                        else {
+                            printf("There is an exception in visit of VarDef!\n");
+                            assert(false);
+                        }
+
+                        val_dest->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
+                        std::string str = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
+                        val_dest->kind.data.alloc.name = new char;
+                        for (size_t i = 0; i < str.size(); i ++ ) {
+                            val_dest->kind.data.alloc.name[i] = str[i];
+                        }
+                        val_dest->kind.data.alloc.name[str.size()] = '\0';
+                        // val_dest->kind.data.alloc.name = "@" + VarDef->ident;
+                        tr->AddValue(val_dest);
+
+                        bt.current->symtable[VarDef->ident].val_p = (void*)val_dest;
                     }
                     else {
-                        printf("There is an exception in visit of VarDef!\n");
-                        assert(false);
+                        // 创建一个全局value.
+                        value_ptr global_val = tr->NewValue();
+                        global_val->ty.tag = tr->ty_cur.tag;
+                        global_val->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
+                        global_val->kind.tag = IR_GLOBAL_ALLOC;
+                        global_val->kind.data.global_alloc.init = tr->NewValue();
+                        global_val->kind.data.global_alloc.init->ty.tag = tr->ty_cur.tag;
+                        global_val->kind.data.global_alloc.init->kind.tag = IR_INTEGER;
+                        global_val->kind.data.global_alloc.init->kind.data.integer.value = 0;
+                        tr->AddGlobalValue(global_val);
+                        bt.current->symtable[VarDef->ident].val_p = (void*)global_val;
                     }
-
-                    val_dest->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
-                    std::string str = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
-                    val_dest->kind.data.alloc.name = new char;
-                    for (size_t i = 0; i < str.size(); i ++ ) {
-                        val_dest->kind.data.alloc.name[i] = str[i];
-                    }
-                    val_dest->kind.data.alloc.name[str.size()] = '\0';
-                    // val_dest->kind.data.alloc.name = "@" + VarDef->ident;
-                    tr->AddValue(val_dest);
-
-                    bt.current->symtable[VarDef->ident].val_p = (void*)val_dest;
                 }
                 else {
-                    // 创建一个全局value.
-                    value_ptr global_val = tr->NewValue();
-                    global_val->ty.tag = tr->ty_cur.tag;
-                    global_val->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
-                    global_val->kind.tag = IR_GLOBAL_ALLOC;
-                    global_val->kind.data.global_alloc.init = tr->NewValue();
-                    global_val->kind.data.global_alloc.init->ty.tag = tr->ty_cur.tag;
-                    global_val->kind.data.global_alloc.init->kind.tag = IR_INTEGER;
-                    global_val->kind.data.global_alloc.init->kind.data.integer.value = 0;
-                    tr->AddGlobalValue(global_val);
-                    bt.current->symtable[VarDef->ident].val_p = (void*)global_val;
+                    printf("There is an exception in visit of VarDef!\n");
+                    assert(false);
+                }
+            }
+            else if (VarDef->type == VarDefAST::HAS_VALUE) {
+
+                if (tr->ty_cur.tag == KOOPA_TYPE_INT32) {
+                    // 首先将变量添加到符号表中
+                    bt.current->symtable[VarDef->ident].ty.tag = I32;
+                    bt.current->symtable[VarDef->ident].value = 0;
+                    bt.current->symtable[VarDef->ident].kind = VAR;
+                    bt.current->symtable[VarDef->ident].has_value = true;
+                    rep_map[VarDef->ident] += 1;
+
+                    if (tr->is_global == false) {
+                        // 首先插入一个alloc指令，将变量分配出来
+                        value_ptr val_dest = tr->NewValue();
+                        val_dest->kind.tag = IR_ALLOC;
+                        if (tr->ty_cur.tag == KOOPA_TYPE_INT32) {
+                            val_dest->kind.data.alloc.ty.tag = KOOPA_TYPE_INT32;
+                            val_dest->ty.tag = KOOPA_TYPE_INT32;
+                        }
+                        else {
+                            printf("There is an exception in visit of VarDef!\n");
+                            assert(false);
+                        }
+
+                        val_dest->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
+                        std::string str = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
+                        val_dest->kind.data.alloc.name = new char;
+                        for (size_t i = 0; i < str.size(); i ++ ) {
+                            val_dest->kind.data.alloc.name[i] = str[i];
+                        }
+                        val_dest->kind.data.alloc.name[str.size()] = '\0';
+                        tr->AddValue(val_dest);
+
+                        // 将变量添加到符号表中
+                        
+                        bt.current->symtable[VarDef->ident].val_p = (void*)val_dest;
+
+                        // 然后计算该变量的值
+                        value_ptr val = (value_ptr)VarDef->initval->accept(this);
+
+                        // 将该计算出来的值store给变量
+                        value_ptr val_store = tr->NewValue();
+                        val_store->kind.tag = IR_STORE;
+                        val_store->kind.data.store.dest = val_dest;
+                        val_store->kind.data.store.value = val;
+                        tr->AddValue(val_store);
+                    }
+                    else {
+                        // 创建一个全局value.
+                        value_ptr global_val = tr->NewValue();
+                        global_val->ty.tag = tr->ty_cur.tag;
+                        global_val->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
+                        global_val->kind.tag = IR_GLOBAL_ALLOC;
+                        global_val->kind.data.global_alloc.init = tr->NewValue();
+                        global_val->kind.data.global_alloc.init->ty.tag = tr->ty_cur.tag;
+                        global_val->kind.data.global_alloc.init->kind.tag = IR_INTEGER;
+                        global_val->kind.data.global_alloc.init->kind.data.integer.value = VarDef->initval->get_value();
+                        tr->AddGlobalValue(global_val);
+                        bt.current->symtable[VarDef->ident].val_p = (void*)global_val;
+                    }
+                }
+                else {
+                    assert(false);
                 }
             }
             else {
-                printf("There is an exception in visit of VarDef!\n");
                 assert(false);
             }
         }
-        else if (VarDef->type == VarDefAST::HAS_VALUE) {
+        else if (VarDef->d_type == VarDefAST::ARRAY) {
+            int length = VarDef->constexp->get_value();
+            tr->arr_len = length;
+            printf("array length:%d\n", length);
+            value_ptr val = tr->NewValue();
+            val->ty.tag = KOOPA_TYPE_ARRAY;
+            val->ty.data.array.len = length;
+            val->ty.data.array.base = new type_kind;
+            val->ty.data.array.base->tag = KOOPA_TYPE_INT32;
+            val->name = "@" + VarDef->ident;
+            val->kind.tag = IR_ALLOC;
+            tr->AddValue(val);
+            tr->arr_cur = val;
 
-            if (tr->ty_cur.tag == KOOPA_TYPE_INT32) {
-                // 首先将变量添加到符号表中
-                bt.current->symtable[VarDef->ident].ty = "i32";
-                bt.current->symtable[VarDef->ident].value = 0;
-                bt.current->symtable[VarDef->ident].kind = VAR;
+            // 将该数组类型加入符号表
+            bt.current->symtable[VarDef->ident].ty.tag = ARRAY;
+            bt.current->symtable[VarDef->ident].ty.data = new type_t;
+            bt.current->symtable[VarDef->ident].ty.data->tag = I32;
+            bt.current->symtable[VarDef->ident].has_value = false;
+            bt.current->symtable[VarDef->ident].kind = VAR;
+            bt.current->symtable[VarDef->ident].val_p = val;
+            rep_map[VarDef->ident] ++;
+            
+            // 接下来处理数组的初始化
+            if (VarDef->type == VarDefAST::NO_VALUE) {
+                printf("Here is OK!\n");
+                // for (int i = 0; i < length; i ++ ) {
+                //     value_ptr get_elem_ptr = tr->NewValue();
+                //     get_elem_ptr->ty.tag = val->ty.data.array.base->tag;
+                //     get_elem_ptr->kind.tag = IR_GET_ELEM_PTR;
+                //     get_elem_ptr->kind.data.get_elem_ptr.src = val;
+                //     get_elem_ptr->kind.data.get_elem_ptr.index = tr->NewValue();
+                //     get_elem_ptr->kind.data.get_elem_ptr.index->kind.tag = IR_INTEGER;
+                //     get_elem_ptr->kind.data.get_elem_ptr.index->kind.data.integer.value = i;
+                //     tr->AddValue(get_elem_ptr);
+                //     value_ptr store = tr->NewValue();
+                //     store->kind.tag = IR_STORE;
+                //     store->kind.data.store.dest = get_elem_ptr;
+                //     store->kind.data.store.value = tr->NewValue();
+                //     store->kind.data.store.value->ty.tag = KOOPA_TYPE_INT32;
+                //     store->kind.data.store.value->kind.tag = IR_INTEGER;
+                //     store->kind.data.store.value->kind.data.integer.value = 0;
+                //     tr->AddValue(store);
+                // }
+            }
+            else if (VarDef->type == VarDefAST::HAS_VALUE) {
+                VarDef->initval->accept(this);
                 bt.current->symtable[VarDef->ident].has_value = true;
-                rep_map[VarDef->ident] += 1;
-
-                if (tr->is_global == false) {
-                    // 首先插入一个alloc指令，将变量分配出来
-                    value_ptr val_dest = tr->NewValue();
-                    val_dest->kind.tag = IR_ALLOC;
-                    if (tr->ty_cur.tag == KOOPA_TYPE_INT32) val_dest->kind.data.alloc.ty.tag = KOOPA_TYPE_INT32;
-                    else {
-                        printf("There is an exception in visit of VarDef!\n");
-                        assert(false);
-                    }
-
-                    val_dest->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
-                    std::string str = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
-                    val_dest->kind.data.alloc.name = new char;
-                    for (size_t i = 0; i < str.size(); i ++ ) {
-                        val_dest->kind.data.alloc.name[i] = str[i];
-                    }
-                    val_dest->kind.data.alloc.name[str.size()] = '\0';
-                    tr->AddValue(val_dest);
-
-                    // 将变量添加到符号表中
-                    
-                    bt.current->symtable[VarDef->ident].val_p = (void*)val_dest;
-
-                    // 然后计算该变量的值
-                    value_ptr val = (value_ptr)VarDef->initval->accept(this);
-
-                    // 将该计算出来的值store给变量
-                    value_ptr val_store = tr->NewValue();
-                    val_store->kind.tag = IR_STORE;
-                    val_store->kind.data.store.dest = val_dest;
-                    val_store->kind.data.store.value = val;
-                    tr->AddValue(val_store);
-                }
-                else {
-                    // 创建一个全局value.
-                    value_ptr global_val = tr->NewValue();
-                    global_val->ty.tag = tr->ty_cur.tag;
-                    global_val->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
-                    global_val->kind.tag = IR_GLOBAL_ALLOC;
-                    global_val->kind.data.global_alloc.init = tr->NewValue();
-                    global_val->kind.data.global_alloc.init->ty.tag = tr->ty_cur.tag;
-                    global_val->kind.data.global_alloc.init->kind.tag = IR_INTEGER;
-                    global_val->kind.data.global_alloc.init->kind.data.integer.value = VarDef->initval->get_value();
-                    tr->AddGlobalValue(global_val);
-                    bt.current->symtable[VarDef->ident].val_p = (void*)global_val;
-                }
             }
-            else {
-                assert(false);
-            }
-        }
-        else {
-            assert(false);
+            tr->arr_cur = NULL;
+
+            // TODO();
         }
         return NULL;
     }
     void *visit(InitValAST *InitVal) {
-        value_ptr val = (value_ptr)InitVal->exp->accept(this);
-        return val;
+        if (InitVal->d_type == InitValAST::VALUE) {
+            value_ptr val = (value_ptr)InitVal->exp->accept(this);
+            return val;
+        }
+        else if (InitVal->d_type == InitValAST::ARRAY) {
+            printf("Here is OK!\n");
+            InitVal->exps->accept(this);
+            return NULL;
+        }
+    }
+    void *visit(ExpsAST *Exps) {
+        for (size_t i = 0; i < Exps->exps.size(); i ++ ) {
+            value_ptr get_elem_ptr = tr->NewValue();
+            get_elem_ptr->ty.tag = tr->arr_cur->ty.data.array.base->tag;
+            get_elem_ptr->kind.tag = IR_GET_ELEM_PTR;
+            get_elem_ptr->kind.data.get_elem_ptr.src = tr->arr_cur;
+            get_elem_ptr->kind.data.get_elem_ptr.index = tr->NewValue();
+            get_elem_ptr->kind.data.get_elem_ptr.index->kind.tag = IR_INTEGER;
+            get_elem_ptr->kind.data.get_elem_ptr.index->kind.data.integer.value = i;
+            tr->AddValue(get_elem_ptr);
+            value_ptr store = tr->NewValue();
+            store->kind.tag = IR_STORE;
+            store->kind.data.store.dest = get_elem_ptr;
+            store->kind.data.store.value = tr->NewValue();
+            store->kind.data.store.value = (value_ptr)Exps->exps[i]->accept(this);
+            tr->AddValue(store);
+        }
+        for (size_t i = Exps->exps.size(); i < tr->arr_len; i ++ ) {
+            value_ptr get_elem_ptr = tr->NewValue();
+            get_elem_ptr->ty.tag = tr->arr_cur->ty.data.array.base->tag;
+            get_elem_ptr->kind.tag = IR_GET_ELEM_PTR;
+            get_elem_ptr->kind.data.get_elem_ptr.src = tr->arr_cur;
+            get_elem_ptr->kind.data.get_elem_ptr.index = tr->NewValue();
+            get_elem_ptr->kind.data.get_elem_ptr.index->kind.tag = IR_INTEGER;
+            get_elem_ptr->kind.data.get_elem_ptr.index->kind.data.integer.value = i;
+            tr->AddValue(get_elem_ptr);
+            value_ptr store = tr->NewValue();
+            store->kind.tag = IR_STORE;
+            store->kind.data.store.dest = get_elem_ptr;
+            store->kind.data.store.value = tr->NewValue();
+            store->kind.data.store.value->kind.tag = IR_INTEGER;
+            store->kind.data.store.value->kind.data.integer.value = 0;
+
+            tr->AddValue(store);
+        }
+        return NULL;
     }
     void *visit(StmtAST *Stmt) {
         tr->stmt_cur = Stmt;
@@ -682,10 +784,14 @@ class GenIR : public Visitor {
             tr->AddValue(val);
         }
         else if (LessStmt->type == LessStmtAST::ASSIGN) {
+            std::string* ident_p = (std::string*)LessStmt->lval->accept(this);
+            std::string ident = *ident_p;
             val->kind.tag = IR_STORE;
             val->kind.data.store.value = (value_ptr)LessStmt->exp->accept(this);
-            val->kind.data.store.dest = (value_ptr)bt.current->symtable[LessStmt->lval].val_p;
-            bt.current->symtable[LessStmt->lval].has_value = true;
+            // val->kind.data.store.dest = (value_ptr)bt.current->symtable[LessStmt->lval].val_p;
+            // bt.current->symtable[LessStmt->lval].has_value = true;
+            val->kind.data.store.dest = (value_ptr)bt.current->symtable[ident].val_p;
+            bt.current->symtable[ident].has_value = true;
             tr->AddValue(val);
         }
         else if (LessStmt->type == LessStmtAST::VOID) {
@@ -715,6 +821,14 @@ class GenIR : public Visitor {
         }
         return val;
     }
+    void *visit(LValAST *lval) {
+        tr->lval_name_cur = lval->ident;
+        if (lval->d_type == LValAST::VALUE) return NULL;
+        else if (lval->d_type == LValAST::ARRAY) {
+            value_ptr index = (value_ptr)lval->exp->accept(this);
+            return index;
+        }
+    }
     void *visit(ExpAST *Exp) {
         value_ptr val_ret = (value_ptr)Exp->lorexp->accept(this);
         return val_ret;
@@ -731,8 +845,11 @@ class GenIR : public Visitor {
             return val;
         }
         else if (PrimaryExp->type == PrimaryExpAST::LVAL) {
-            if (bt.current->symtable.count(PrimaryExp->lval) == 0) {
-                value_ptr val = tr->IsParam(PrimaryExp->lval);
+            // std::string ident = *(std::string*)PrimaryExp->lval->accept(this);
+            value_ptr index = (value_ptr)PrimaryExp->lval->accept(this);
+            std::string ident = tr->lval_name_cur;
+            if (bt.current->symtable.count(ident) == 0) {
+                value_ptr val = tr->IsParam(ident);
                 if (val != NULL) {
                     return val;
                 }
@@ -741,19 +858,53 @@ class GenIR : public Visitor {
                     assert(false);
                 }
             }
-            if (bt.current->symtable[PrimaryExp->lval].kind == CON) {
-                value_ptr val = new value;
-                val->kind.tag = IR_INTEGER;
-                val->kind.data.integer.value = bt.current->symtable[PrimaryExp->lval].value;
-                return val;
+            if (bt.current->symtable[ident].kind == CON) {
+                if (bt.current->symtable[ident].ty.tag == I32) {
+                    value_ptr val = new value;
+                    val->kind.tag = IR_INTEGER;
+                    val->kind.data.integer.value = bt.current->symtable[ident].value;
+                    return val;
+                }
+                else if (bt.current->symtable[ident].ty.tag == ARRAY) {
+                    printf("Here is an array!\n");
+                    value_ptr val = tr->NewValue();
+                    if (bt.current->symtable[ident].ty.data->tag == I32) val->ty.tag = KOOPA_TYPE_INT32;
+                    else assert(false);
+                    val->kind.tag = IR_GET_ELEM_PTR;
+                    val->kind.data.get_elem_ptr.src = (value_ptr)bt.current->symtable[ident].val_p;
+                    val->kind.data.get_elem_ptr.index = index;
+                    tr->AddValue(val);
+                    value_ptr load = tr->NewValue();
+                    load->ty.tag = KOOPA_TYPE_INT32;
+                    load->kind.tag = IR_LOAD;
+                    load->kind.data.load.src = val;
+                    tr->AddValue(load);
+                    return load;
+                }
             }
-            else if (bt.current->symtable[PrimaryExp->lval].kind == VAR) {
-                value_ptr val = tr->NewValue();
-                val->kind.tag = IR_LOAD;
-                val->kind.data.load.src = (value_ptr)bt.current->symtable[PrimaryExp->lval].val_p;
-                tr->AddValue(val);
-                
-                return val;
+            else if (bt.current->symtable[ident].kind == VAR) {
+                if (bt.current->symtable[ident].ty.tag == I32) {
+                    value_ptr val = tr->NewValue();
+                    val->kind.tag = IR_LOAD;
+                    val->kind.data.load.src = (value_ptr)bt.current->symtable[ident].val_p;
+                    tr->AddValue(val);
+                    return val;
+                }
+                else if (bt.current->symtable[ident].ty.tag == ARRAY) {
+                    value_ptr val = tr->NewValue();
+                    if (bt.current->symtable[ident].ty.data->tag == I32) val->ty.tag = KOOPA_TYPE_INT32;
+                    else assert(false);
+                    val->kind.tag = IR_GET_ELEM_PTR;
+                    val->kind.data.get_elem_ptr.src = (value_ptr)bt.current->symtable[ident].val_p;
+                    val->kind.data.get_elem_ptr.index = index;
+                    tr->AddValue(val);
+                    value_ptr load = tr->NewValue();
+                    load->ty.tag = KOOPA_TYPE_INT32;
+                    load->kind.tag = IR_LOAD;
+                    load->kind.data.load.src = val;
+                    tr->AddValue(load);
+                    return load;
+                }
             }
             else {
                 printf("Here!!!\n");

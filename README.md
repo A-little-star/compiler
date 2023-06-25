@@ -64,3 +64,8 @@ ConstExp      ::= Exp;
 ## IR
 生成抽象语法树AST之后，编译器会遍历AST，生成数据结构形式的Koopa IR，生成的过程写在midend/ast2ir.cpp中。
 
+## Bug list
+1.目前IR中的变量类型（alloc类型）的type（ty）没有正确赋值，一个变量的alloc类型应该是一个pointer类型。
+
+同时，应该修改load，store指令中，对指针类型的处理。
+
