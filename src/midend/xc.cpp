@@ -36,7 +36,7 @@ void GenCode(const prog_ptr prog, std::ostream &os) {
     os << "decl @putch(i32)\n";
     os << "decl @putarray(i32, *i32)\n";
     os << "decl @starttime()\n";
-    os << "decl @stoptime()\n";
+    os << "decl @stoptime()\n\n";
 
     GenCode(prog->values, os);
     os << std::endl;
@@ -86,6 +86,18 @@ void GenCode(const value_ptr val, std::ostream &os) {
             os << kind.data.integer.value;
             break;
         }
+        case IR_AGGREGATE:
+        {
+            os << "{";
+            slice_ptr elems = val->kind.data.aggregate.elems;
+            for (int i = 0; i < elems->len; i ++ ) {
+                value_ptr num = (value_ptr)elems->buffer[i];
+                os << num->kind.data.integer.value;
+                if (i != elems->len - 1) os << ", ";
+            }
+            os << "}";
+            break;
+        }
         case IR_FUNC_ARG:
         {
             if (val->kind.data.func_arg.index > 1) os << ",";
@@ -98,6 +110,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
         }
         case IR_ALLOC:
         {
+            printf("Here is IR_ALLOC!\n");
             os << "  " << val->name << " = alloc ";
             if (val->ty.tag == KOOPA_TYPE_INT32 ) {
                 os << "i32" << std::endl;
@@ -113,15 +126,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
                     type = *type.data.array.base;
                 }
                 os << std::endl;
-                // os << "[";
-                // if (val->ty.data.array.base->tag == KOOPA_TYPE_INT32) {
-                //     os << "i32, " << val->ty.data.array.len;
-                // }
-                // os << "]" << std::endl;
             }
-            // if (kind.data.alloc.ty.tag == KOOPA_TYPE_INT32) {
-            //     os << "i32" << std::endl;
-            // }
             else {
                 assert(false);
             }
@@ -129,16 +134,34 @@ void GenCode(const value_ptr val, std::ostream &os) {
         }
         case IR_GLOBAL_ALLOC:
         {
-            os << "global " << val->name << " = alloc ";
-            if (val->ty.tag == KOOPA_TYPE_INT32) os << "i32";
-            else assert(false);
-            os << ", " << val->kind.data.global_alloc.init->kind.data.integer.value << std::endl;
+            if (val->ty.data.pointer.base->tag == KOOPA_TYPE_INT32) {
+                os << "global " << val->name << " = alloc ";
+                os << "i32";
+                os << ", " << val->kind.data.global_alloc.init->kind.data.integer.value << std::endl;
+            }
+            else if (val->ty.data.pointer.base->tag == KOOPA_TYPE_ARRAY) {
+                os << "global " << val->name << " = alloc ";
+                type_kind type = *val->ty.data.pointer.base;
+                while (type.tag == KOOPA_TYPE_ARRAY) {
+                    os << "[";
+                    if (type.data.array.base->tag == KOOPA_TYPE_INT32) {
+                        os << "i32, " << type.data.array.len;
+                    }
+                    os << "]";
+                    type = *type.data.array.base;
+                }
+                os << ", ";
+                GenCode(val->kind.data.global_alloc.init, os);
+                os << std::endl;
+            }
             break;
         }
         case IR_LOAD:
         {
+            printf("Here is load!\n");
             if (kind.data.load.src->kind.tag == IR_GET_ELEM_PTR) {
                 os << "  %" << val_id << " = load " << "%" << val_map[kind.data.load.src] << std::endl;
+                val_map[val] = val_id;
                 val_id ++;
                 break;
             }
@@ -149,6 +172,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
         }
         case IR_STORE:
         {
+            printf("Here is IR_STORE!\n");
             os << "  store ";
 
             switch (kind.data.store.value->kind.tag) {
@@ -165,10 +189,12 @@ void GenCode(const value_ptr val, std::ostream &os) {
 
             // os << kind.data.store.dest->kind.data.alloc.name << std::endl;
             else os << kind.data.store.dest->name << std::endl;
+            printf("IR_STORE is OK!\n");
             break;
         }
         case IR_GET_ELEM_PTR:
         {
+            printf("Here is IR_GET_ELEM_PTR!\n");
             if (val->kind.data.get_elem_ptr.index->kind.tag == IR_INTEGER)
                 os << "  %" << val_id << " = getelemptr " << val->kind.data.get_elem_ptr.src->name << ", " << val->kind.data.get_elem_ptr.index->kind.data.integer.value << std::endl;
             else {
@@ -186,6 +212,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 case IR_INTEGER: os << std::to_string(kind.data.branch.cond->kind.data.integer.value); break;
                 case IR_CALL:
                 case IR_BINARY:
+                case IR_GET_ELEM_PTR:
                 case IR_LOAD: os << "%" << std::to_string(val_map[kind.data.branch.cond]); break;
                 case IR_FUNC_ARG: os << kind.data.branch.cond->name; break;
                 default: assert(false);
@@ -212,6 +239,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
                         case IR_INTEGER: GenCode(ptr, os); break;
                         case IR_CALL:
                         case IR_BINARY:
+                        case IR_GET_ELEM_PTR:
                         case IR_LOAD: os << "%" << val_map[ptr]; break;
                         case IR_FUNC_ARG: os << ptr->name; break;
                         default: assert(false);
@@ -232,6 +260,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
                         case IR_INTEGER: GenCode(ptr, os); break;
                         case IR_CALL:
                         case IR_BINARY:
+                        case IR_GET_ELEM_PTR:
                         case IR_LOAD: os << "%" << val_map[ptr]; break;
                         case IR_FUNC_ARG: os << ptr->name; break;
                         default: assert(false);
@@ -244,6 +273,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
         }
         case IR_RETURN:
         {
+            printf("Here is IR_RETURN!\n");
             if (kind.data.ret.value == NULL) {
                 os << "  ret\n";
                 break;
@@ -252,10 +282,12 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 case IR_INTEGER: os << "  ret " << kind.data.ret.value->kind.data.integer.value << std::endl; break;
                 case IR_CALL:
                 case IR_LOAD:
+                case IR_GET_ELEM_PTR:
                 case IR_BINARY: os << "  ret %" << val_map[kind.data.ret.value] << std::endl; break;
                 case IR_FUNC_ARG: os << kind.data.ret.value->name << std::endl; break;
                 default: assert(false);
             }
+            printf("IR_RETURN is OK!\n");
             break;
         }
         case IR_BINARY:
@@ -266,6 +298,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 case IR_INTEGER: l_str = std::to_string(kind.data.binary.lhs->kind.data.integer.value); break;
                 case IR_CALL:
                 case IR_BINARY:
+                case IR_GET_ELEM_PTR:
                 case IR_LOAD: l_str = "%" + std::to_string(val_map[kind.data.binary.lhs]); break;
                 case IR_FUNC_ARG: l_str = kind.data.binary.lhs->name; break;
                 default: assert(false);
@@ -275,6 +308,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 case IR_INTEGER: r_str = std::to_string(kind.data.binary.rhs->kind.data.integer.value); break;
                 case IR_CALL:
                 case IR_BINARY:
+                case IR_GET_ELEM_PTR:
                 case IR_LOAD: r_str = "%" + std::to_string(val_map[kind.data.binary.rhs]); break;
                 case IR_FUNC_ARG: r_str = kind.data.binary.rhs->name; break;
                 default: assert(false);

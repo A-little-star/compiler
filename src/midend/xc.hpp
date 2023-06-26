@@ -32,6 +32,8 @@ enum inst_kind_tag {
     // 整型数据
     IR_INTEGER,
     IR_VARIABLE,
+    // Aggregate constant.
+    IR_AGGREGATE,
     // Function argumemnt reference.
     IR_FUNC_ARG,
     // Basic block argument reference.
@@ -121,6 +123,10 @@ typedef struct {
 } integer_t;
 
 typedef struct {
+    slice_ptr elems;
+} aggregate_t;
+
+typedef struct {
     size_t index;
 } func_arg_t;
 
@@ -198,6 +204,7 @@ typedef struct {
     inst_kind_tag tag;
     union {
         integer_t integer;
+        aggregate_t aggregate;
         func_arg_t func_arg;
         block_arg_t block_arg;
         // variable_t var;

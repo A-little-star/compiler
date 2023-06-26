@@ -227,18 +227,84 @@ class GenIR : public Visitor {
         return NULL;
     }
     void *visit(ConstDefAST *ConstDef) {
-        int val = ConstDef->constinitval->get_value();
-        // symtable[ConstDef->ident] = {I32, val, CON, true};
-        if (tr->ty_cur.tag == KOOPA_TYPE_INT32) {
-            bt.current->symtable[ConstDef->ident].ty.tag = I32;
-            bt.current->symtable[ConstDef->ident].value = val;
-            bt.current->symtable[ConstDef->ident].kind = CON;
-            bt.current->symtable[ConstDef->ident].has_value = true;
-            rep_map[ConstDef->ident] += 1;
+        if (ConstDef->d_type == ConstDefAST::VALUE) {
+            int val = ConstDef->constinitval->get_value();
+            // symtable[ConstDef->ident] = {I32, val, CON, true};
+            if (tr->ty_cur.tag == KOOPA_TYPE_INT32) {
+                bt.current->symtable[ConstDef->ident].ty.tag = I32;
+                bt.current->symtable[ConstDef->ident].value = val;
+                bt.current->symtable[ConstDef->ident].kind = CON;
+                bt.current->symtable[ConstDef->ident].has_value = true;
+                rep_map[ConstDef->ident] += 1;
+            }
+            else {
+                printf("There is an exception in visit of ConstDef!\n");
+                assert(false);
+            }
         }
-        else {
-            printf("There is an exception in visit of ConstDef!\n");
-            assert(false);
+        else if (ConstDef->d_type == ConstDefAST::ARRAY) {
+            // 将该数组类型加入符号表
+            bt.current->symtable[ConstDef->ident].ty.tag = ARRAY;
+            bt.current->symtable[ConstDef->ident].ty.data = new type_t;
+            bt.current->symtable[ConstDef->ident].ty.data->tag = I32;
+            bt.current->symtable[ConstDef->ident].has_value = false;
+            bt.current->symtable[ConstDef->ident].kind = CON;
+            
+            rep_map[ConstDef->ident] ++;
+
+
+            int length = ConstDef->constexp->get_value();
+            tr->arr_len = length;
+            printf("array length:%d\n", length);
+            value_ptr val = tr->NewValue();
+            val->ty.tag = KOOPA_TYPE_ARRAY;
+            val->ty.data.array.len = length;
+            val->ty.data.array.base = new type_kind;
+            val->ty.data.array.base->tag = KOOPA_TYPE_INT32;
+            val->name = "@" + ConstDef->ident + '_' + std::to_string(rep_map[ConstDef->ident]);
+            val->kind.tag = IR_ALLOC;
+            tr->AddValue(val);
+            tr->arr_cur = val;
+
+            bt.current->symtable[ConstDef->ident].val_p = val;
+
+            // 进行数组的初始化
+            ConstDef->constinitval->accept(this);
+            bt.current->symtable[ConstDef->ident].has_value = true;
+
+            tr->arr_cur = NULL;
+        }
+        return NULL;
+    }
+    void *visit(ConstInitValAST *ConstInitVal) {
+        
+        if (ConstInitVal->d_type == ConstInitValAST::ARRAY) {
+            ConstInitVal->constexps->accept(this);
+            return NULL;
+        }
+        assert(false);
+        return NULL;
+    }
+    void *visit(ConstExpsAST *ConstExps) {
+        assert(ConstExps->constexps.size() == tr->arr_len);
+        printf("Here is OK!\n");
+        for (size_t i = 0; i < ConstExps->constexps.size(); i ++ ) {
+            value_ptr get_elem_ptr = tr->NewValue();
+            get_elem_ptr->ty.tag = tr->arr_cur->ty.data.array.base->tag;
+            get_elem_ptr->kind.tag = IR_GET_ELEM_PTR;
+            get_elem_ptr->kind.data.get_elem_ptr.src = tr->arr_cur;
+            get_elem_ptr->kind.data.get_elem_ptr.index = tr->NewValue();
+            get_elem_ptr->kind.data.get_elem_ptr.index->kind.tag = IR_INTEGER;
+            get_elem_ptr->kind.data.get_elem_ptr.index->kind.data.integer.value = i;
+            tr->AddValue(get_elem_ptr);
+            value_ptr store = tr->NewValue();
+            store->kind.tag = IR_STORE;
+            store->kind.data.store.dest = get_elem_ptr;
+            store->kind.data.store.value = tr->NewValue();
+            store->kind.data.store.value = new value;
+            store->kind.data.store.value->kind.tag = IR_INTEGER;
+            store->kind.data.store.value->kind.data.integer.value = ConstExps->constexps[i]->get_value();
+            tr->AddValue(store);
         }
         return NULL;
     }
@@ -296,7 +362,10 @@ class GenIR : public Visitor {
                     else {
                         // 创建一个全局value.
                         value_ptr global_val = tr->NewValue();
-                        global_val->ty.tag = tr->ty_cur.tag;
+                        global_val->ty.tag = KOOPA_TYPE_POINTER;
+                        global_val->ty.data.pointer.base = new type_kind;
+                        global_val->ty.data.pointer.base->tag = tr->ty_cur.tag;
+                        // global_val->ty.tag = tr->ty_cur.tag;
                         global_val->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
                         global_val->kind.tag = IR_GLOBAL_ALLOC;
                         global_val->kind.data.global_alloc.init = tr->NewValue();
@@ -361,7 +430,10 @@ class GenIR : public Visitor {
                     else {
                         // 创建一个全局value.
                         value_ptr global_val = tr->NewValue();
-                        global_val->ty.tag = tr->ty_cur.tag;
+                        global_val->ty.tag = KOOPA_TYPE_POINTER;
+                        global_val->ty.data.pointer.base = new type_kind;
+                        global_val->ty.data.pointer.base->tag = tr->ty_cur.tag;
+                        // global_val->ty.tag = tr->ty_cur.tag;
                         global_val->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
                         global_val->kind.tag = IR_GLOBAL_ALLOC;
                         global_val->kind.data.global_alloc.init = tr->NewValue();
@@ -381,105 +453,153 @@ class GenIR : public Visitor {
             }
         }
         else if (VarDef->d_type == VarDefAST::ARRAY) {
-            int length = VarDef->constexp->get_value();
-            tr->arr_len = length;
-            printf("array length:%d\n", length);
-            value_ptr val = tr->NewValue();
-            val->ty.tag = KOOPA_TYPE_ARRAY;
-            val->ty.data.array.len = length;
-            val->ty.data.array.base = new type_kind;
-            val->ty.data.array.base->tag = KOOPA_TYPE_INT32;
-            val->name = "@" + VarDef->ident;
-            val->kind.tag = IR_ALLOC;
-            tr->AddValue(val);
-            tr->arr_cur = val;
-
             // 将该数组类型加入符号表
             bt.current->symtable[VarDef->ident].ty.tag = ARRAY;
             bt.current->symtable[VarDef->ident].ty.data = new type_t;
             bt.current->symtable[VarDef->ident].ty.data->tag = I32;
             bt.current->symtable[VarDef->ident].has_value = false;
             bt.current->symtable[VarDef->ident].kind = VAR;
-            bt.current->symtable[VarDef->ident].val_p = val;
-            rep_map[VarDef->ident] ++;
             
-            // 接下来处理数组的初始化
-            if (VarDef->type == VarDefAST::NO_VALUE) {
-                printf("Here is OK!\n");
-                // for (int i = 0; i < length; i ++ ) {
-                //     value_ptr get_elem_ptr = tr->NewValue();
-                //     get_elem_ptr->ty.tag = val->ty.data.array.base->tag;
-                //     get_elem_ptr->kind.tag = IR_GET_ELEM_PTR;
-                //     get_elem_ptr->kind.data.get_elem_ptr.src = val;
-                //     get_elem_ptr->kind.data.get_elem_ptr.index = tr->NewValue();
-                //     get_elem_ptr->kind.data.get_elem_ptr.index->kind.tag = IR_INTEGER;
-                //     get_elem_ptr->kind.data.get_elem_ptr.index->kind.data.integer.value = i;
-                //     tr->AddValue(get_elem_ptr);
-                //     value_ptr store = tr->NewValue();
-                //     store->kind.tag = IR_STORE;
-                //     store->kind.data.store.dest = get_elem_ptr;
-                //     store->kind.data.store.value = tr->NewValue();
-                //     store->kind.data.store.value->ty.tag = KOOPA_TYPE_INT32;
-                //     store->kind.data.store.value->kind.tag = IR_INTEGER;
-                //     store->kind.data.store.value->kind.data.integer.value = 0;
-                //     tr->AddValue(store);
-                // }
-            }
-            else if (VarDef->type == VarDefAST::HAS_VALUE) {
-                VarDef->initval->accept(this);
-                bt.current->symtable[VarDef->ident].has_value = true;
-            }
-            tr->arr_cur = NULL;
+            rep_map[VarDef->ident] ++;
 
-            // TODO();
+            int length = VarDef->constexp->get_value();
+            tr->arr_len = length;
+
+            if (!tr->is_global) {
+                
+                value_ptr val = tr->NewValue();
+                val->ty.tag = KOOPA_TYPE_ARRAY;
+                val->ty.data.array.len = length;
+                val->ty.data.array.base = new type_kind;
+                val->ty.data.array.base->tag = KOOPA_TYPE_INT32;
+                val->name = "@" + VarDef->ident + '_' + std::to_string(rep_map[VarDef->ident]);
+                val->kind.tag = IR_ALLOC;
+                tr->AddValue(val);
+                tr->arr_cur = val;
+
+                bt.current->symtable[VarDef->ident].val_p = val;
+                
+                // 接下来处理数组的初始化
+                if (VarDef->type == VarDefAST::HAS_VALUE) {
+                    VarDef->initval->accept(this);
+                    bt.current->symtable[VarDef->ident].has_value = true;
+                }
+                tr->arr_cur = NULL;
+            }
+            else if (tr->is_global) {
+                
+                value_ptr value_g = tr->NewValue();
+                value_g->ty.tag = KOOPA_TYPE_POINTER;
+                value_g->ty.data.pointer.base = new type_kind;
+                value_g->ty.data.pointer.base->tag = KOOPA_TYPE_ARRAY;
+                value_g->ty.data.pointer.base->data.array.len = tr->arr_len;
+                value_g->ty.data.pointer.base->data.array.base = new type_kind;
+                value_g->ty.data.pointer.base->data.array.base->tag = KOOPA_TYPE_INT32;
+                value_g->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
+                value_g->kind.tag = IR_GLOBAL_ALLOC;
+                // value_g->kind.data.global_alloc.init = tr->NewValue();
+                // value_g->kind.data.global_alloc.init->kind.tag = IR_AGGREGATE;
+                // value_g->kind.data.global_alloc.init->kind.data.aggregate.elems = new slice;
+                if (VarDef->type == VarDefAST::HAS_VALUE) {
+                    value_g->kind.data.global_alloc.init = (value_ptr)VarDef->initval->accept(this);
+                }
+                else {
+                    value_ptr aggregate = tr->NewValue();
+                    slice_ptr aggregate_elems = new slice;
+                    aggregate_elems->len = tr->arr_len;
+                    for (size_t i = 0; i < tr->arr_len; i ++ ) {
+                        value_ptr val = new value;
+                        val->ty.tag = KOOPA_TYPE_INT32;
+                        val->kind.tag = IR_INTEGER;
+                        val->kind.data.integer.value = 0;
+                        aggregate_elems->buffer.push_back(val);
+                    }
+                    aggregate->kind.tag = IR_AGGREGATE;
+                    aggregate->kind.data.aggregate.elems = aggregate_elems;
+                    value_g->kind.data.global_alloc.init = aggregate;
+                }
+                tr->AddGlobalValue(value_g);
+            }
+
         }
         return NULL;
     }
     void *visit(InitValAST *InitVal) {
+        printf("Here is OK!\n");
         if (InitVal->d_type == InitValAST::VALUE) {
             value_ptr val = (value_ptr)InitVal->exp->accept(this);
             return val;
         }
         else if (InitVal->d_type == InitValAST::ARRAY) {
-            printf("Here is OK!\n");
-            InitVal->exps->accept(this);
-            return NULL;
+            if (!tr->is_global) {
+                
+                InitVal->exps->accept(this);
+                return NULL;
+            }
+            else {
+                value_ptr aggregate = tr->NewValue();
+                aggregate->kind.tag = IR_AGGREGATE;
+                
+                aggregate->kind.data.aggregate.elems = (slice_ptr)InitVal->exps->accept(this);
+                return aggregate;
+            }
         }
     }
     void *visit(ExpsAST *Exps) {
-        for (size_t i = 0; i < Exps->exps.size(); i ++ ) {
-            value_ptr get_elem_ptr = tr->NewValue();
-            get_elem_ptr->ty.tag = tr->arr_cur->ty.data.array.base->tag;
-            get_elem_ptr->kind.tag = IR_GET_ELEM_PTR;
-            get_elem_ptr->kind.data.get_elem_ptr.src = tr->arr_cur;
-            get_elem_ptr->kind.data.get_elem_ptr.index = tr->NewValue();
-            get_elem_ptr->kind.data.get_elem_ptr.index->kind.tag = IR_INTEGER;
-            get_elem_ptr->kind.data.get_elem_ptr.index->kind.data.integer.value = i;
-            tr->AddValue(get_elem_ptr);
-            value_ptr store = tr->NewValue();
-            store->kind.tag = IR_STORE;
-            store->kind.data.store.dest = get_elem_ptr;
-            store->kind.data.store.value = tr->NewValue();
-            store->kind.data.store.value = (value_ptr)Exps->exps[i]->accept(this);
-            tr->AddValue(store);
-        }
-        for (size_t i = Exps->exps.size(); i < tr->arr_len; i ++ ) {
-            value_ptr get_elem_ptr = tr->NewValue();
-            get_elem_ptr->ty.tag = tr->arr_cur->ty.data.array.base->tag;
-            get_elem_ptr->kind.tag = IR_GET_ELEM_PTR;
-            get_elem_ptr->kind.data.get_elem_ptr.src = tr->arr_cur;
-            get_elem_ptr->kind.data.get_elem_ptr.index = tr->NewValue();
-            get_elem_ptr->kind.data.get_elem_ptr.index->kind.tag = IR_INTEGER;
-            get_elem_ptr->kind.data.get_elem_ptr.index->kind.data.integer.value = i;
-            tr->AddValue(get_elem_ptr);
-            value_ptr store = tr->NewValue();
-            store->kind.tag = IR_STORE;
-            store->kind.data.store.dest = get_elem_ptr;
-            store->kind.data.store.value = tr->NewValue();
-            store->kind.data.store.value->kind.tag = IR_INTEGER;
-            store->kind.data.store.value->kind.data.integer.value = 0;
+        if (!tr->is_global) {
+            for (size_t i = 0; i < Exps->exps.size(); i ++ ) {
+                value_ptr get_elem_ptr = tr->NewValue();
+                get_elem_ptr->ty.tag = tr->arr_cur->ty.data.array.base->tag;
+                get_elem_ptr->kind.tag = IR_GET_ELEM_PTR;
+                get_elem_ptr->kind.data.get_elem_ptr.src = tr->arr_cur;
+                get_elem_ptr->kind.data.get_elem_ptr.index = tr->NewValue();
+                get_elem_ptr->kind.data.get_elem_ptr.index->kind.tag = IR_INTEGER;
+                get_elem_ptr->kind.data.get_elem_ptr.index->kind.data.integer.value = i;
+                tr->AddValue(get_elem_ptr);
+                value_ptr store = tr->NewValue();
+                store->kind.tag = IR_STORE;
+                store->kind.data.store.dest = get_elem_ptr;
+                store->kind.data.store.value = tr->NewValue();
+                store->kind.data.store.value = (value_ptr)Exps->exps[i]->accept(this);
+                tr->AddValue(store);
+            }
+            for (size_t i = Exps->exps.size(); i < tr->arr_len; i ++ ) {
+                value_ptr get_elem_ptr = tr->NewValue();
+                get_elem_ptr->ty.tag = tr->arr_cur->ty.data.array.base->tag;
+                get_elem_ptr->kind.tag = IR_GET_ELEM_PTR;
+                get_elem_ptr->kind.data.get_elem_ptr.src = tr->arr_cur;
+                get_elem_ptr->kind.data.get_elem_ptr.index = tr->NewValue();
+                get_elem_ptr->kind.data.get_elem_ptr.index->kind.tag = IR_INTEGER;
+                get_elem_ptr->kind.data.get_elem_ptr.index->kind.data.integer.value = i;
+                tr->AddValue(get_elem_ptr);
+                value_ptr store = tr->NewValue();
+                store->kind.tag = IR_STORE;
+                store->kind.data.store.dest = get_elem_ptr;
+                store->kind.data.store.value = tr->NewValue();
+                store->kind.data.store.value->kind.tag = IR_INTEGER;
+                store->kind.data.store.value->kind.data.integer.value = 0;
 
-            tr->AddValue(store);
+                tr->AddValue(store);
+            }
+        }
+        else if (tr->is_global) {
+            slice_ptr aggregate = new slice;
+            aggregate->len = tr->arr_len;
+            for (size_t i = 0; i < Exps->exps.size(); i ++ ) {
+                value_ptr val = new value;
+                val->ty.tag = KOOPA_TYPE_INT32;
+                val->kind.tag = IR_INTEGER;
+                val->kind.data.integer.value = Exps->exps[i]->get_value();
+                aggregate->buffer.push_back(val);
+            }
+            for (size_t i = Exps->exps.size(); i < tr->arr_len; i ++ ) {
+                value_ptr val = new value;
+                val->ty.tag = KOOPA_TYPE_INT32;
+                val->kind.tag = IR_INTEGER;
+                val->kind.data.integer.value = 0;
+                aggregate->buffer.push_back(val);
+            }
+            return aggregate;
         }
         return NULL;
     }
