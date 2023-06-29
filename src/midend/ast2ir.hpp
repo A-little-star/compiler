@@ -519,6 +519,7 @@ class GenIR : public Visitor {
                     value_g->kind.data.global_alloc.init = aggregate;
                 }
                 tr->AddGlobalValue(value_g);
+                bt.current->symtable[VarDef->ident].val_p = value_g;
             }
 
         }

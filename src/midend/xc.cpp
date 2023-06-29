@@ -202,6 +202,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
             }
             val_map[val] = val_id;
             val_id ++;
+            printf("GET_ELEM_PTR is OK!\n");
             break;
         }
         case IR_BRANCH:
