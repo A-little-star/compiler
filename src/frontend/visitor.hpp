@@ -30,12 +30,14 @@ class ConstDeclAST;
 class ConstDefsAST;
 class ConstDefAST;
 class ConstInitValAST;
+class ConstInitValsAST;
 class ConstExpAST;
 class ConstExpsAST;
 class VarDeclAST;
 class VarDefsAST;
 class VarDefAST;
 class InitValAST;
+class InitValsAST;
 
 // 语句类型
 class StmtAST;
@@ -80,6 +82,8 @@ class Translate_Helper {
         int arr_len;
         // 当前处理的LVal名称
         std::string lval_name_cur;
+        // 当前是否正在进行数组的初始化
+        bool is_array_init;
 
         value_ptr NewValue() {
             // 新建一个value类型，并为其成员变量分配内存空间
@@ -298,10 +302,12 @@ class Visitor {
         virtual void *visit(ConstDefsAST *) { return NULL; }
         virtual void *visit(ConstDefAST *) { return NULL; }
         virtual void *visit(ConstInitValAST *) { return NULL; }
+        virtual void *visit(ConstInitValsAST *) { return NULL; }
         virtual void *visit(VarDeclAST *) { return NULL; }
         virtual void *visit(VarDefsAST *) { return NULL; }
         virtual void *visit(VarDefAST *) { return NULL; }
         virtual void *visit(InitValAST *) { return NULL; }
+        virtual void *visit(InitValsAST *) { return NULL; }
         virtual void *visit(StmtAST *) { return NULL; }
         virtual void *visit(OpenStmtAST *) { return NULL; }
         virtual void *visit(ClosedStmtAST *) { return NULL; }

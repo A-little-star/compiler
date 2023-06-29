@@ -9,7 +9,7 @@
 
 enum kind_t {CON, VAR};
 
-enum type_t_tag {I32, ARRAY};
+enum type_t_tag {I32, ARRAY, POINTER};
 
 typedef struct type_t {
     type_t_tag tag;

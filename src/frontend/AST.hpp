@@ -226,7 +226,8 @@ class ConstDefAST : public BaseAST {
     public:
         enum {VALUE, ARRAY} d_type;
         std::string ident;
-        std::unique_ptr<BaseAST> constexp;
+        // std::unique_ptr<BaseAST> constexp;
+        std::unique_ptr<BaseAST> constexps;
         std::unique_ptr<BaseAST> constinitval;
 
         void Dump() const override {
@@ -244,7 +245,8 @@ class ConstInitValAST : public BaseAST {
     public:
         enum {VALUE, ARRAY} d_type;
         std::unique_ptr<BaseAST> constexp;
-        std::unique_ptr<BaseAST> constexps;
+        // std::unique_ptr<BaseAST> constexps;
+        std::unique_ptr<BaseAST> constinitvals;
 
         void Dump() const override {
             std::cout << "ConstInitValAST: {\n";
@@ -258,6 +260,18 @@ class ConstInitValAST : public BaseAST {
 
         int get_value() override {
             return constexp->get_value();
+        }
+};
+
+class ConstInitValsAST : public BaseAST {
+    public:
+        std::vector<std::unique_ptr<BaseAST>> constinitvals;
+
+        void Dump() const override {
+
+        }
+        void *accept(Visitor *v) override {
+            return v->visit(this);
         }
 };
 
@@ -309,7 +323,8 @@ class VarDefAST : public BaseAST {
         enum {NO_VALUE, HAS_VALUE} type;
         enum {VALUE, ARRAY} d_type;
         std::string ident;
-        std::unique_ptr<BaseAST> constexp;
+        // std::unique_ptr<BaseAST> constexp;
+        std::unique_ptr<BaseAST> constexps;
         std::unique_ptr<BaseAST> initval;
 
         void Dump() const override {
@@ -326,7 +341,8 @@ class InitValAST : public BaseAST {
     public:
         enum {VALUE, ARRAY} d_type;
         std::unique_ptr<BaseAST> exp;
-        std::unique_ptr<BaseAST> exps;
+        // std::unique_ptr<BaseAST> exps;
+        std::unique_ptr<BaseAST> initvals;
 
         void Dump() const override {
             std::cout << "InitValAST: {\n";
@@ -338,6 +354,18 @@ class InitValAST : public BaseAST {
         }
         int get_value() override {
             return exp->get_value();
+        }
+};
+
+class InitValsAST : public BaseAST {
+    public:
+        std::vector<std::unique_ptr<BaseAST>> initvals;
+
+        void Dump() const override {
+
+        }
+        void *accept(Visitor *v) override {
+            return v->visit(this);
         }
 };
 
@@ -561,7 +589,8 @@ class LValAST : public BaseAST {
     public:
         enum {VALUE, ARRAY} d_type;
         std::string ident;
-        std::unique_ptr<BaseAST> exp;
+        // std::unique_ptr<BaseAST> exp;
+        std::unique_ptr<BaseAST> exps;
 
         void Dump() const override {
             // std::cout << "LVal: {\n";

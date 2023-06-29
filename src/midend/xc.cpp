@@ -92,7 +92,8 @@ void GenCode(const value_ptr val, std::ostream &os) {
             slice_ptr elems = val->kind.data.aggregate.elems;
             for (int i = 0; i < elems->len; i ++ ) {
                 value_ptr num = (value_ptr)elems->buffer[i];
-                os << num->kind.data.integer.value;
+                // os << num->kind.data.integer.value;
+                GenCode(num, os);
                 if (i != elems->len - 1) os << ", ";
             }
             os << "}";
@@ -110,7 +111,6 @@ void GenCode(const value_ptr val, std::ostream &os) {
         }
         case IR_ALLOC:
         {
-            printf("Here is IR_ALLOC!\n");
             os << "  " << val->name << " = alloc ";
             if (val->ty.tag == KOOPA_TYPE_INT32 ) {
                 os << "i32" << std::endl;
@@ -119,9 +119,10 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 type_kind type = val->ty;
                 while (type.tag == KOOPA_TYPE_ARRAY) {
                     os << "[";
-                    if (type.data.array.base->tag == KOOPA_TYPE_INT32) {
-                        os << "i32, " << val->ty.data.array.len;
+                    if (type.data.array.base->tag == KOOPA_TYPE_POINTER) {
+                        os << "i32, ";
                     }
+                    os << type.data.array.len;
                     os << "]";
                     type = *type.data.array.base;
                 }
@@ -139,14 +140,30 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 os << "i32";
                 os << ", " << val->kind.data.global_alloc.init->kind.data.integer.value << std::endl;
             }
-            else if (val->ty.data.pointer.base->tag == KOOPA_TYPE_ARRAY) {
+            // else if (val->ty.'data.pointer.base->tag == KOOPA_TYPE_ARRAY) {
+            //     os << "global " << val->name << " = alloc ";
+            //     type_kind type = *val->ty.data.pointer.base;
+            //     while (type.tag == KOOPA_TYPE_ARRAY) {
+            //         os << "[";
+            //         if (type.data.array.base->tag == KOOPA_TYPE_INT32) {
+            //             os << "i32, " << type.data.array.len;
+            //         }
+            //         os << "]";
+            //         type = *type.data.array.base;
+            //     }
+            //     os << ", ";
+            //     GenCode(val->kind.data.global_alloc.init, os);
+            //     os << std::endl;
+            // }
+            else if (val->ty.tag == KOOPA_TYPE_ARRAY) {
                 os << "global " << val->name << " = alloc ";
-                type_kind type = *val->ty.data.pointer.base;
+                type_kind type = val->ty;
                 while (type.tag == KOOPA_TYPE_ARRAY) {
                     os << "[";
-                    if (type.data.array.base->tag == KOOPA_TYPE_INT32) {
-                        os << "i32, " << type.data.array.len;
+                    if (type.data.array.base->tag == KOOPA_TYPE_POINTER) {
+                        os << "i32, ";
                     }
+                    os << type.data.array.len;
                     os << "]";
                     type = *type.data.array.base;
                 }
@@ -194,15 +211,19 @@ void GenCode(const value_ptr val, std::ostream &os) {
         }
         case IR_GET_ELEM_PTR:
         {
-            printf("Here is IR_GET_ELEM_PTR!\n");
-            if (val->kind.data.get_elem_ptr.index->kind.tag == IR_INTEGER)
-                os << "  %" << val_id << " = getelemptr " << val->kind.data.get_elem_ptr.src->name << ", " << val->kind.data.get_elem_ptr.index->kind.data.integer.value << std::endl;
+            if (val->kind.data.get_elem_ptr.index->kind.tag == IR_INTEGER) {
+                if (val->kind.data.get_elem_ptr.src->kind.tag == IR_ALLOC || val->kind.data.get_elem_ptr.src->kind.tag == IR_GLOBAL_ALLOC)
+                    os << "  %" << val_id << " = getelemptr " << val->kind.data.get_elem_ptr.src->name << ", " << val->kind.data.get_elem_ptr.index->kind.data.integer.value << std::endl;
+                else if (val->kind.data.get_elem_ptr.src->kind.tag == IR_GET_ELEM_PTR) {
+                    os << "  %" << val_id << " = getelemptr " << "%" << val_map[val->kind.data.get_elem_ptr.src] << ", " << val->kind.data.get_elem_ptr.index->kind.data.integer.value << std::endl;
+                }
+                else assert(false);
+            }
             else {
                 assert(false);
             }
             val_map[val] = val_id;
             val_id ++;
-            printf("GET_ELEM_PTR is OK!\n");
             break;
         }
         case IR_BRANCH:
