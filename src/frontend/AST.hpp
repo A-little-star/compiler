@@ -15,6 +15,7 @@ class BaseAST {
         virtual void Dump() const = 0;
         virtual void *accept(Visitor *v) = 0;
         virtual int get_value() { return 0; }
+        virtual std::string get_name() { return ""; }
 };
 
 class CompUnitAST : public BaseAST {
@@ -602,6 +603,9 @@ class LValAST : public BaseAST {
         }
         int get_value() override {
             return bt.current->symtable[ident].value;
+        }
+        std::string get_name() override {
+            return ident;
         }
 };
 

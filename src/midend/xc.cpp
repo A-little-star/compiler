@@ -20,6 +20,8 @@ void FreeMem(func_ptr func);
 void FreeMem(basic_block_ptr bb);
 void FreeMem(value_ptr val);
 
+void DumpType(type_kind ty, std::ostream &os);
+
 static int val_id = 0;
 std::unordered_map<value_ptr, int> val_map;
 
@@ -67,7 +69,6 @@ void GenCode(const func_ptr func, std::ostream &os) {
     GenCode(func->params, os);
     os << ")";
     if (func->ty.tag == KOOPA_TYPE_INT32) os << ": i32";
-    // else if (func->ty.tag == KOOPA_TYPE_UNIT) ;
     os << " {\n";
     GenCode(func->bbs, os);
     os << "}\n";
@@ -84,6 +85,11 @@ void GenCode(const value_ptr val, std::ostream &os) {
         case IR_INTEGER:
         {
             os << kind.data.integer.value;
+            break;
+        }
+        case IR_ZERO_INIT:
+        {
+            os << "zeroinit\n";
             break;
         }
         case IR_AGGREGATE:
@@ -117,15 +123,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
             }
             else if (val->ty.tag == KOOPA_TYPE_ARRAY) {
                 type_kind type = val->ty;
-                while (type.tag == KOOPA_TYPE_ARRAY) {
-                    os << "[";
-                    if (type.data.array.base->tag == KOOPA_TYPE_POINTER) {
-                        os << "i32, ";
-                    }
-                    os << type.data.array.len;
-                    os << "]";
-                    type = *type.data.array.base;
-                }
+                DumpType(type, os);
                 os << std::endl;
             }
             else {
@@ -158,18 +156,9 @@ void GenCode(const value_ptr val, std::ostream &os) {
             else if (val->ty.tag == KOOPA_TYPE_ARRAY) {
                 os << "global " << val->name << " = alloc ";
                 type_kind type = val->ty;
-                while (type.tag == KOOPA_TYPE_ARRAY) {
-                    os << "[";
-                    if (type.data.array.base->tag == KOOPA_TYPE_POINTER) {
-                        os << "i32, ";
-                    }
-                    os << type.data.array.len;
-                    os << "]";
-                    type = *type.data.array.base;
-                }
+                DumpType(type, os);
                 os << ", ";
                 GenCode(val->kind.data.global_alloc.init, os);
-                os << std::endl;
             }
             break;
         }
@@ -211,17 +200,42 @@ void GenCode(const value_ptr val, std::ostream &os) {
         }
         case IR_GET_ELEM_PTR:
         {
-            if (val->kind.data.get_elem_ptr.index->kind.tag == IR_INTEGER) {
-                if (val->kind.data.get_elem_ptr.src->kind.tag == IR_ALLOC || val->kind.data.get_elem_ptr.src->kind.tag == IR_GLOBAL_ALLOC)
-                    os << "  %" << val_id << " = getelemptr " << val->kind.data.get_elem_ptr.src->name << ", " << val->kind.data.get_elem_ptr.index->kind.data.integer.value << std::endl;
-                else if (val->kind.data.get_elem_ptr.src->kind.tag == IR_GET_ELEM_PTR) {
-                    os << "  %" << val_id << " = getelemptr " << "%" << val_map[val->kind.data.get_elem_ptr.src] << ", " << val->kind.data.get_elem_ptr.index->kind.data.integer.value << std::endl;
+            switch (val->kind.data.get_elem_ptr.index->kind.tag) {
+                case IR_INTEGER:
+                {
+                    if (val->kind.data.get_elem_ptr.src->kind.tag == IR_ALLOC || val->kind.data.get_elem_ptr.src->kind.tag == IR_GLOBAL_ALLOC)
+                        os << "  %" << val_id << " = getelemptr " << val->kind.data.get_elem_ptr.src->name << ", " << val->kind.data.get_elem_ptr.index->kind.data.integer.value << std::endl;
+                    else if (val->kind.data.get_elem_ptr.src->kind.tag == IR_GET_ELEM_PTR) {
+                        os << "  %" << val_id << " = getelemptr " << "%" << val_map[val->kind.data.get_elem_ptr.src] << ", " << val->kind.data.get_elem_ptr.index->kind.data.integer.value << std::endl;
+                    }
+                    else assert(false);
+                    break;
                 }
-                else assert(false);
+                case IR_ALLOC:
+                case IR_BINARY:
+                case IR_CALL:
+                case IR_GET_ELEM_PTR:
+                case IR_GLOBAL_ALLOC:
+                case IR_LOAD:
+                {
+                    if (val->kind.data.get_elem_ptr.src->kind.tag == IR_ALLOC || val->kind.data.get_elem_ptr.src->kind.tag == IR_GLOBAL_ALLOC)
+                        os << "  %" << val_id << " = getelemptr " << val->kind.data.get_elem_ptr.src->name << ", " << "%" << val_map[val->kind.data.get_elem_ptr.index] << std::endl;
+                    else if (val->kind.data.get_elem_ptr.src->kind.tag == IR_GET_ELEM_PTR) {
+                        os << "  %" << val_id << " = getelemptr " << "%" << val_map[val->kind.data.get_elem_ptr.src] << ", %" << val_map[val->kind.data.get_elem_ptr.index] << std::endl;
+                    }
+                }
             }
-            else {
-                assert(false);
-            }
+            // if (val->kind.data.get_elem_ptr.index->kind.tag == IR_INTEGER) {
+            //     if (val->kind.data.get_elem_ptr.src->kind.tag == IR_ALLOC || val->kind.data.get_elem_ptr.src->kind.tag == IR_GLOBAL_ALLOC)
+            //         os << "  %" << val_id << " = getelemptr " << val->kind.data.get_elem_ptr.src->name << ", " << val->kind.data.get_elem_ptr.index->kind.data.integer.value << std::endl;
+            //     else if (val->kind.data.get_elem_ptr.src->kind.tag == IR_GET_ELEM_PTR) {
+            //         os << "  %" << val_id << " = getelemptr " << "%" << val_map[val->kind.data.get_elem_ptr.src] << ", " << val->kind.data.get_elem_ptr.index->kind.data.integer.value << std::endl;
+            //     }
+            //     else assert(false);
+            // }
+            // else {
+            //     assert(false);
+            // }
             val_map[val] = val_id;
             val_id ++;
             break;
@@ -367,6 +381,19 @@ void GenCode(const value_ptr val, std::ostream &os) {
     }
 }
 
+void DumpType(type_kind ty, std::ostream &os) {
+    if (ty.tag == KOOPA_TYPE_ARRAY) {
+        os << "[";
+        DumpType(*ty.data.array.base, os);
+        os << ", " << ty.data.array.len << "]";
+    }
+    else if (ty.tag == KOOPA_TYPE_POINTER) {
+        if (ty.data.pointer.base->tag == KOOPA_TYPE_INT32) {
+            os << "i32";
+        }
+        else assert(false);
+    }
+}
 
 void FreeMem(prog_ptr prog) {
     FreeMem(prog->values);

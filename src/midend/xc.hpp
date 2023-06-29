@@ -32,6 +32,8 @@ enum inst_kind_tag {
     // 整型数据
     IR_INTEGER,
     IR_VARIABLE,
+    // Zero initializer.
+    IR_ZERO_INIT,
     // Aggregate constant.
     IR_AGGREGATE,
     // Function argumemnt reference.
