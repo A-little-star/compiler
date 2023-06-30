@@ -81,7 +81,6 @@ class GenIR : public Visitor {
         // 函数名
         func->name = "@" + FuncDef->ident;
         // 递归处理函数的返回值类型
-        std::cout << FuncDef->func_type << std::endl;
         if (FuncDef->func_type == "int") func->ty.tag = KOOPA_TYPE_INT32;
         else if (FuncDef->func_type == "void") func->ty.tag = KOOPA_TYPE_UNIT;
         else assert(false);
@@ -344,6 +343,8 @@ class GenIR : public Visitor {
                 return aggregate;
             }
         }
+        assert(false);
+        return NULL;
     }
     void *visit(ConstInitValsAST *ConstInitVals) {
         tr->is_array_init = true;
@@ -686,13 +687,11 @@ class GenIR : public Visitor {
         return NULL;
     }
     void *visit(ExpsAST *Exps) {
-        printf("Here is Exps!\n");
         static std::vector<value_ptr> indexs;
         indexs.clear();
         for (size_t i = 0; i < Exps->exps.size(); i ++ ) {
             indexs.push_back((value_ptr)Exps->exps[i]->accept(this));
         }
-        printf("Exps is ok!\n");
         return &indexs;
         // if (!tr->is_global) {
         //     for (size_t i = 0; i < Exps->exps.size(); i ++ ) {
@@ -1052,23 +1051,16 @@ class GenIR : public Visitor {
             tr->AddValue(val);
         }
         else if (LessStmt->type == LessStmtAST::ASSIGN) {
-            printf("Here is OK!\n");
             void *ptr = LessStmt->lval->accept(this);
-            printf("ptr is ok!\n");
             std::vector<value_ptr> indexs;
             if (ptr != NULL) indexs = *(std::vector<value_ptr>*)ptr;
-            // std::string ident = tr->lval_name_cur;
             std::string ident = LessStmt->lval->get_name();
             
             value_ptr arr = (value_ptr)bt.current->symtable[ident].val_p;
-            // std::string ident = arr->name;
-            std::cout << arr->name << std::endl;
             val->kind.tag = IR_STORE;
             val->kind.data.store.value = (value_ptr)LessStmt->exp->accept(this);
             for (size_t i = 0; i < indexs.size(); i ++ ) {
                 value_ptr getelem = tr->NewValue();
-                if (arr->ty.data.array.base->tag == KOOPA_TYPE_ARRAY) printf("Array.\n");
-                else if (arr->ty.data.array.base->tag == KOOPA_TYPE_POINTER) printf("Pointer.\n");
                 getelem->ty = *arr->ty.data.array.base;
                 getelem->kind.tag = IR_GET_ELEM_PTR;
                 getelem->kind.data.get_elem_ptr.index = indexs[i];
@@ -1110,19 +1102,13 @@ class GenIR : public Visitor {
         return val;
     }
     void *visit(LValAST *lval) {
-        std::string last_ident = tr->lval_name_cur;
-        tr->lval_name_cur = lval->ident;
-        // std::vector<int> indexs = *(std::vector<int>*)lval->exps->accept(this);
         if (lval->d_type == LValAST::VALUE) {
-            // tr->lval_name_cur = last_ident;
             return NULL;
         }
         else if (lval->d_type == LValAST::ARRAY) {
-            // value_ptr index = (value_ptr)lval->exp->accept(this);
-            // return index;
             static std::vector<value_ptr> indexs;
+            indexs.clear();
             indexs = *(std::vector<value_ptr>*)lval->exps->accept(this);
-            tr->lval_name_cur = last_ident;
             return &indexs;
         }
         assert(false);
@@ -1145,10 +1131,10 @@ class GenIR : public Visitor {
         }
         else if (PrimaryExp->type == PrimaryExpAST::LVAL) {
             // std::string ident = *(std::string*)PrimaryExp->lval->accept(this);
-            value_ptr index = (value_ptr)PrimaryExp->lval->accept(this);
+            // value_ptr index = (value_ptr)PrimaryExp->lval->accept(this);
+            void *ptr = PrimaryExp->lval->accept(this);
             // std::string ident = tr->lval_name_cur;
             std::string ident = PrimaryExp->lval->get_name();
-            std::cout << "PrimaryExp ident:" << ident << std::endl;
             if (bt.current->symtable.count(ident) == 0) {
                 value_ptr val = tr->IsParam(ident);
                 if (val != NULL) {
@@ -1167,7 +1153,8 @@ class GenIR : public Visitor {
                     return val;
                 }
                 else if (bt.current->symtable[ident].ty.tag == ARRAY) {
-                    std::vector<value_ptr> indexs = *(std::vector<value_ptr>*)PrimaryExp->lval->accept(this);
+                    // std::vector<value_ptr> indexs = *(std::vector<value_ptr>*)PrimaryExp->lval->accept(this);
+                    std::vector<value_ptr> indexs = *(std::vector<value_ptr>*)ptr;
                     value_ptr arr = (value_ptr)bt.current->symtable[ident].val_p;
                     int i = 0;
                     while (arr->ty.tag == KOOPA_TYPE_ARRAY) {
@@ -1207,7 +1194,8 @@ class GenIR : public Visitor {
                     return val;
                 }
                 else if (bt.current->symtable[ident].ty.tag == ARRAY) {
-                    std::vector<value_ptr> indexs = *(std::vector<value_ptr>*)PrimaryExp->lval->accept(this);
+                    // std::vector<value_ptr> indexs = *(std::vector<value_ptr>*)PrimaryExp->lval->accept(this);
+                    std::vector<value_ptr> indexs = *(std::vector<value_ptr>*)ptr;
                     value_ptr arr = (value_ptr)bt.current->symtable[ident].val_p;
                     int i = 0;
                     while (arr->ty.tag == KOOPA_TYPE_ARRAY) {

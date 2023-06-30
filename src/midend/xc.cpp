@@ -164,7 +164,6 @@ void GenCode(const value_ptr val, std::ostream &os) {
         }
         case IR_LOAD:
         {
-            printf("Here is load!\n");
             if (kind.data.load.src->kind.tag == IR_GET_ELEM_PTR) {
                 os << "  %" << val_id << " = load " << "%" << val_map[kind.data.load.src] << std::endl;
                 val_map[val] = val_id;
@@ -178,7 +177,6 @@ void GenCode(const value_ptr val, std::ostream &os) {
         }
         case IR_STORE:
         {
-            printf("Here is IR_STORE!\n");
             os << "  store ";
 
             switch (kind.data.store.value->kind.tag) {
@@ -195,7 +193,6 @@ void GenCode(const value_ptr val, std::ostream &os) {
 
             // os << kind.data.store.dest->kind.data.alloc.name << std::endl;
             else os << kind.data.store.dest->name << std::endl;
-            printf("IR_STORE is OK!\n");
             break;
         }
         case IR_GET_ELEM_PTR:
@@ -223,26 +220,17 @@ void GenCode(const value_ptr val, std::ostream &os) {
                     else if (val->kind.data.get_elem_ptr.src->kind.tag == IR_GET_ELEM_PTR) {
                         os << "  %" << val_id << " = getelemptr " << "%" << val_map[val->kind.data.get_elem_ptr.src] << ", %" << val_map[val->kind.data.get_elem_ptr.index] << std::endl;
                     }
+                    else assert(false);
+                    break;
                 }
+                default: break;
             }
-            // if (val->kind.data.get_elem_ptr.index->kind.tag == IR_INTEGER) {
-            //     if (val->kind.data.get_elem_ptr.src->kind.tag == IR_ALLOC || val->kind.data.get_elem_ptr.src->kind.tag == IR_GLOBAL_ALLOC)
-            //         os << "  %" << val_id << " = getelemptr " << val->kind.data.get_elem_ptr.src->name << ", " << val->kind.data.get_elem_ptr.index->kind.data.integer.value << std::endl;
-            //     else if (val->kind.data.get_elem_ptr.src->kind.tag == IR_GET_ELEM_PTR) {
-            //         os << "  %" << val_id << " = getelemptr " << "%" << val_map[val->kind.data.get_elem_ptr.src] << ", " << val->kind.data.get_elem_ptr.index->kind.data.integer.value << std::endl;
-            //     }
-            //     else assert(false);
-            // }
-            // else {
-            //     assert(false);
-            // }
             val_map[val] = val_id;
             val_id ++;
             break;
         }
         case IR_BRANCH:
         {
-            
             os << "  br ";
             switch (kind.data.branch.cond->kind.tag) {
                 case IR_INTEGER: os << std::to_string(kind.data.branch.cond->kind.data.integer.value); break;
@@ -309,7 +297,6 @@ void GenCode(const value_ptr val, std::ostream &os) {
         }
         case IR_RETURN:
         {
-            printf("Here is IR_RETURN!\n");
             if (kind.data.ret.value == NULL) {
                 os << "  ret\n";
                 break;
@@ -323,7 +310,6 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 case IR_FUNC_ARG: os << kind.data.ret.value->name << std::endl; break;
                 default: assert(false);
             }
-            printf("IR_RETURN is OK!\n");
             break;
         }
         case IR_BINARY:
