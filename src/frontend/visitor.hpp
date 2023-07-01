@@ -156,7 +156,6 @@ class Translate_Helper {
             std::string pn = "@" + param_name;
             for (size_t i = 0; i < func_cur->params->len; i ++ ) {
                 value_ptr param = (value_ptr)func_cur->params->buffer[i];
-                // std::cout << "param name:" << param->name << std::endl;
                 if (pn == param->name) {
                     if (!param2value.count(param)) {
                         value_ptr v_alloc = NewValue();
@@ -181,8 +180,6 @@ class Translate_Helper {
                     v_load->kind.data.load.src = param2value[param];
                     AddValue(v_load);
                     val = v_load;
-                    // val = param;
-                    // printf("ADD PARAM SUCCESS!\n");
                     break;
                 }
             }

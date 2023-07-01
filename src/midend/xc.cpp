@@ -21,6 +21,7 @@ void FreeMem(basic_block_ptr bb);
 void FreeMem(value_ptr val);
 
 void DumpType(type_kind ty, std::ostream &os);
+void DumpAllocType(type_kind ty, std::ostream &os);
 
 static int val_id = 0;
 std::unordered_map<value_ptr, int> val_map;
@@ -109,29 +110,25 @@ void GenCode(const value_ptr val, std::ostream &os) {
         {
             if (val->kind.data.func_arg.index > 1) os << ",";
             os << val->name << ": ";
-            switch (val->ty.tag) {
-                case KOOPA_TYPE_INT32: os << "i32"; break;
-                case KOOPA_TYPE_POINTER: os << "*i32"; break;
-                default: assert(false);
-            }
+            type_kind type = val->ty;
+            DumpType(type, os);
+            // switch (val->ty.tag) {
+            //     case KOOPA_TYPE_INT32: os << "i32"; break;
+            //     case KOOPA_TYPE_POINTER: os << "*i32"; break;
+            //     default: assert(false);
+            // }
             break;
         }
         case IR_ALLOC:
         {
             os << "  " << val->name << " = alloc ";
-            if (val->ty.tag == KOOPA_TYPE_INT32 ) {
-                os << "i32" << std::endl;
-            }
-            else if (val->ty.tag == KOOPA_TYPE_ARRAY) {
+            if (val->name == "%arr") printf("type:%d\n",val->ty.data.pointer.base->tag);
+            if (val->ty.tag == KOOPA_TYPE_POINTER) {
                 // type_kind type = val->ty;
                 type_kind type = *val->ty.data.pointer.base;
-                DumpType(type, os);
-                os << std::endl;
-            }
-            else if (val->ty.tag == KOOPA_TYPE_POINTER) {
-                // type_kind type = val->ty;-
-                type_kind type = *val->ty.data.pointer.base;
-                DumpType(type, os);
+                // type_kind type = val->ty;
+                // DumpType(type, os);
+                DumpAllocType(type, os);
                 os << std::endl;
             }
             else {
@@ -146,13 +143,23 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 os << "i32";
                 os << ", " << val->kind.data.global_alloc.init->kind.data.integer.value << std::endl;
             }
-            else if (val->ty.tag == KOOPA_TYPE_ARRAY) {
+            else if (val->ty.data.pointer.base->tag == KOOPA_TYPE_ARRAY) {
                 os << "global " << val->name << " = alloc ";
-                type_kind type = val->ty;
+                type_kind type = *val->ty.data.pointer.base;
                 // DumpType(type, os);
+                DumpAllocType(type, os);
                 os << ", ";
                 GenCode(val->kind.data.global_alloc.init, os);
+                os << std::endl;
             }
+            else assert(false);
+            // else if (val->ty.tag == KOOPA_TYPE_ARRAY) {
+            //     os << "global " << val->name << " = alloc ";
+            //     type_kind type = val->ty;
+            //     // DumpType(type, os);
+            //     os << ", ";
+            //     GenCode(val->kind.data.global_alloc.init, os);
+            // }
             break;
         }
         case IR_LOAD:
@@ -182,7 +189,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 default: assert(false);
             }
 
-            if (kind.data.store.dest->kind.tag == IR_GET_ELEM_PTR) os << "%" << val_map[kind.data.store.dest] << std::endl;
+            if (kind.data.store.dest->kind.tag == IR_GET_ELEM_PTR || kind.data.store.dest->kind.tag == IR_GET_PTR) os << "%" << val_map[kind.data.store.dest] << std::endl;
 
             // os << kind.data.store.dest->kind.data.alloc.name << std::endl;
             else os << kind.data.store.dest->name << std::endl;
@@ -243,11 +250,10 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 {
                     if (val->kind.data.get_elem_ptr.src->kind.tag == IR_ALLOC || val->kind.data.get_elem_ptr.src->kind.tag == IR_GLOBAL_ALLOC)
                         os << "  %" << val_id << " = getelemptr " << val->kind.data.get_elem_ptr.src->name << ", " << val->kind.data.get_elem_ptr.index->kind.data.integer.value << std::endl;
-                    else if (val->kind.data.get_elem_ptr.src->kind.tag == IR_GET_ELEM_PTR) {
+                    else if (val->kind.data.get_elem_ptr.src->kind.tag == IR_GET_ELEM_PTR || val->kind.data.get_elem_ptr.src->kind.tag == IR_GET_PTR) {
                         os << "  %" << val_id << " = getelemptr " << "%" << val_map[val->kind.data.get_elem_ptr.src] << ", " << val->kind.data.get_elem_ptr.index->kind.data.integer.value << std::endl;
                     }
                     else assert(false);
-                    printf("SUCCESS!\n");
                     break;
                 }
                 case IR_ALLOC:
@@ -306,6 +312,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
                         case IR_CALL:
                         case IR_BINARY:
                         case IR_GET_ELEM_PTR:
+                        case IR_GET_PTR:
                         case IR_LOAD: os << "%" << val_map[ptr]; break;
                         case IR_FUNC_ARG: os << ptr->name; break;
                         default: assert(false);
@@ -411,6 +418,34 @@ void GenCode(const value_ptr val, std::ostream &os) {
     }
 }
 
+
+void DumpAllocType (type_kind ty, std::ostream &os) {
+    if (ty.tag == KOOPA_TYPE_ARRAY) {
+        os << "[";
+        DumpAllocType(*ty.data.array.base, os);
+        os << ", " << ty.data.array.len << "]";
+    }
+    else if (ty.tag == KOOPA_TYPE_POINTER) {
+        if (ty.data.pointer.base->tag == KOOPA_TYPE_INT32) {
+            os << "*i32";
+            // os << "i32";
+        }
+        else if (ty.data.pointer.base->tag == KOOPA_TYPE_POINTER) {
+            os << "*";
+            DumpAllocType(*ty.data.pointer.base, os);
+        }
+        else if (ty.data.pointer.base->tag == KOOPA_TYPE_ARRAY) {
+            os << "*";
+            DumpAllocType(*ty.data.pointer.base, os);
+        }
+        else assert(false);
+    }
+    // else assert(false);
+    else if (ty.tag == KOOPA_TYPE_INT32) {
+        os << "i32";
+    }
+}
+
 void DumpType(type_kind ty, std::ostream &os) {
     if (ty.tag == KOOPA_TYPE_ARRAY) {
         os << "[";
@@ -419,13 +454,22 @@ void DumpType(type_kind ty, std::ostream &os) {
     }
     else if (ty.tag == KOOPA_TYPE_POINTER) {
         if (ty.data.pointer.base->tag == KOOPA_TYPE_INT32) {
-            os << "i32";
+            // os << "i32";
+            os << "*";
+            DumpType(*ty.data.pointer.base, os);
         }
         else if (ty.data.pointer.base->tag == KOOPA_TYPE_POINTER) {
             os << "*";
             DumpType(*ty.data.pointer.base, os);
         }
+        else if (ty.data.pointer.base->tag == KOOPA_TYPE_ARRAY) {
+            os << "*";
+            DumpType(*ty.data.pointer.base, os);
+        }
         else assert(false);
+    }
+    else if (ty.tag == KOOPA_TYPE_INT32) {
+        os << "i32";
     }
 }
 
