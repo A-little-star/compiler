@@ -47,6 +47,8 @@ enum inst_kind_tag {
     IR_LOAD,
     // 存储指令
     IR_STORE,
+    // 指针运算
+    IR_GET_PTR,
     // 获取数组元素
     IR_GET_ELEM_PTR,
     // 二进制运算
@@ -164,6 +166,13 @@ typedef struct {
     value_ptr src;
     // Index.
     value_ptr index;
+} get_ptr_t;
+
+typedef struct {
+    // Source.
+    value_ptr src;
+    // Index.
+    value_ptr index;
 } get_elem_ptr_t;
 
 struct basic_block;
@@ -214,6 +223,7 @@ typedef struct {
         global_alloc_t global_alloc;
         load_t load;
         store_t store;
+        get_ptr_t get_ptr;
         get_elem_ptr_t get_elem_ptr;
         binary_t binary;
         branch_t branch;

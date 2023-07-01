@@ -101,8 +101,10 @@ class FuncFParamsAST : public BaseAST {
 
 class FuncFParamAST : public BaseAST {
     public:
+        enum {INT, ARRAY} type;
         std::string btype;
         std::string ident;
+        std::unique_ptr<BaseAST> constexps;
 
         void Dump() const override {
 

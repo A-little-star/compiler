@@ -201,8 +201,25 @@ FuncFParam
   // }
   : INT IDENT {
     auto ast = new FuncFParamAST();
+    ast->type = FuncFParamAST::INT;
     ast->btype = "int";
     ast->ident = *unique_ptr<string>($2);
+    $$ = ast;
+  }
+  | INT IDENT '[' ']' {
+    auto ast = new FuncFParamAST();
+    ast->type = FuncFParamAST::ARRAY;
+    ast->btype = "int";
+    ast->ident = *unique_ptr<string>($2);
+    ast->constexps = unique_ptr<BaseAST>(new ConstExpsAST());
+    $$ = ast;
+  }
+  | INT IDENT '[' ']' ConstExps {
+    auto ast = new FuncFParamAST();
+    ast->type = FuncFParamAST::ARRAY;
+    ast->btype = "int";
+    ast->ident = *unique_ptr<string>($2);
+    ast->constexps = unique_ptr<BaseAST>($5);
     $$ = ast;
   }
   ;

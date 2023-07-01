@@ -78,12 +78,25 @@ class Translate_Helper {
         bool is_global;
         // 当前所处理的数组
         value_ptr arr_cur;
+        // 当前处理的数组的下标
+        int arr_index_cur[100];
+        // 数组维度栈
+        std::vector<type_kind*> arr;
         // 当前处理的数组长度
         int arr_len;
         // 当前处理的LVal名称
         std::string lval_name_cur;
         // 当前是否正在进行数组的初始化
         bool is_array_init;
+
+        int GetDim(type_kind ty) {
+            int dim = 0;
+            while (ty.tag == KOOPA_TYPE_ARRAY) {
+                dim ++;
+                ty = *ty.data.array.base;
+            }
+            return dim;
+        }
 
         value_ptr NewValue() {
             // 新建一个value类型，并为其成员变量分配内存空间
@@ -138,15 +151,20 @@ class Translate_Helper {
 
         // 判断变量名为param_name的变量是否存在于当前函数的参数列表中，如果存在，返回该存数的value指针，否则返回NULL
         value_ptr IsParam(std::string param_name) {
+            // printf("There is a param.\n");
             value_ptr val = NULL;
             std::string pn = "@" + param_name;
             for (size_t i = 0; i < func_cur->params->len; i ++ ) {
                 value_ptr param = (value_ptr)func_cur->params->buffer[i];
+                // std::cout << "param name:" << param->name << std::endl;
                 if (pn == param->name) {
                     if (!param2value.count(param)) {
                         value_ptr v_alloc = NewValue();
                         v_alloc->name = "%" + pn.substr(1);
-                        v_alloc->ty.tag = param->ty.tag;
+                        v_alloc->ty.tag = KOOPA_TYPE_POINTER;
+                        v_alloc->ty.data.pointer.base = new type_kind;
+                        *v_alloc->ty.data.pointer.base = param->ty;
+                        // v_alloc->ty.tag = param->ty.tag;
                         v_alloc->kind.tag = IR_ALLOC;
                         AddValue(v_alloc);
                         value_ptr v_store = NewValue();
@@ -157,12 +175,14 @@ class Translate_Helper {
                         param2value[param] = v_alloc;
                     }
                     value_ptr v_load = NewValue();
-                    v_load->ty.tag = param2value[param]->ty.tag;
+                    v_load->ty = *param2value[param]->ty.data.pointer.base;
+                    // v_load->ty.tag = param2value[param]->ty.tag;
                     v_load->kind.tag = IR_LOAD;
                     v_load->kind.data.load.src = param2value[param];
                     AddValue(v_load);
                     val = v_load;
                     // val = param;
+                    // printf("ADD PARAM SUCCESS!\n");
                     break;
                 }
             }
