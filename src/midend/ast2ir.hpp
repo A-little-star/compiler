@@ -5,6 +5,7 @@
 #include "../frontend/AST.hpp"
 #include "SymTable.hpp"
 #include "loop.hpp"
+#include "index.hpp"
 // #include "visitor.hpp"
 
 class Visitor;
@@ -36,6 +37,12 @@ class GenIR : public Visitor {
         root_lt->loop_end = NULL;
         lt.root = root_lt;
         lt.current = root_lt;
+
+        // 创建下标树的根节点
+        IndexTreeNode *root_it = new IndexTreeNode;
+        root_it->father_index = root_it;
+        it.root = root_it;
+        it.current = root_it;
 
         // 声明SysY库中的函数
         tr->AddLibFunc();
@@ -784,12 +791,14 @@ class GenIR : public Visitor {
         return NULL;
     }
     void *visit(ExpsAST *Exps) {
-        static std::vector<value_ptr> indexs;
-        indexs.clear();
+        // static std::vector<value_ptr> indexs;
+        // indexs.clear();
         for (size_t i = 0; i < Exps->exps.size(); i ++ ) {
-            indexs.push_back((value_ptr)Exps->exps[i]->accept(this));
+            it.current->indexs.push_back((value_ptr)Exps->exps[i]->accept(this));
+            // indexs.push_back((value_ptr)Exps->exps[i]->accept(this));
         }
-        return &indexs;
+        return NULL;
+        // return &indexs;
     }
     void *visit(StmtAST *Stmt) {
         tr->stmt_cur = Stmt;
@@ -1097,7 +1106,15 @@ class GenIR : public Visitor {
             if (bt.current->symtable.count(ident) == 0) {
                 value_ptr val = tr->IsParam(ident);
                 if (val != NULL) {
-                    if (ptr == NULL) return val;
+                    if (ptr == NULL) {
+                        value_ptr store = tr->NewValue();
+                        store->kind.tag = IR_STORE;
+                        store->kind.data.store.value = (value_ptr)LessStmt->exp->accept(this);
+                        assert(val->kind.tag == IR_LOAD);
+                        store->kind.data.store.dest = val->kind.data.load.src;
+                        tr->AddValue(store);
+                        return store;
+                    }
                     std::vector<value_ptr> indexs = *(std::vector<value_ptr>*)ptr;
                     value_ptr getptr = tr->NewValue();
                     getptr->ty = val->ty;
@@ -1189,10 +1206,18 @@ class GenIR : public Visitor {
             return NULL;
         }
         else if (lval->d_type == LValAST::ARRAY) {
-            static std::vector<value_ptr> indexs;
-            indexs.clear();
-            indexs = *(std::vector<value_ptr>*)lval->exps->accept(this);
-            return &indexs;
+            IndexTreeNode *itn = new IndexTreeNode;
+            itn->indexs.clear();
+            itn->father_index = it.current;
+            it.current = itn;
+            // itn->indexs = *(std::vector<value_ptr>*)lval->exps->accept(this);
+            lval->exps->accept(this);
+            it.current = itn->father_index;
+            return &itn->indexs;
+            // static std::vector<value_ptr> indexs;
+            // indexs.clear();
+            // indexs = *(std::vector<value_ptr>*)lval->exps->accept(this);
+            // return &indexs;
         }
         assert(false);
         return NULL;

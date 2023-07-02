@@ -173,6 +173,10 @@ class Translate_Helper {
                         AddValue(v_store);
                         param2value[param] = v_alloc;
                     }
+                    // if (param2value[param]->ty.data.pointer.base->tag == KOOPA_TYPE_INT32) {
+                    //     val = param2value[param];
+                    //     break;
+                    // }
                     value_ptr v_load = NewValue();
                     v_load->ty = *param2value[param]->ty.data.pointer.base;
                     // v_load->ty.tag = param2value[param]->ty.tag;
