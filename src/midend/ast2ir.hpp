@@ -10,6 +10,7 @@
 
 class Visitor;
 static int bb_id;
+static int result_id;
 std::unordered_map<StmtAST*, basic_block_ptr> end_map;
 std::unordered_map<std::string, int> rep_map;
 std::unordered_map<std::string, func_ptr> func_map;
@@ -1609,39 +1610,113 @@ class GenIR : public Visitor {
             return val;
         }
         else {
-            value_ptr l_val = tr->NewValue();
-            l_val->kind.tag = IR_BINARY;
-            l_val->kind.data.binary.op = NOT_EQ;
-            l_val->kind.data.binary.lhs = new value;
-            l_val->kind.data.binary.lhs->kind.tag = IR_INTEGER;
-            l_val->kind.data.binary.lhs->kind.data.integer.value = 0;
-            l_val->kind.data.binary.rhs = (value_ptr)LAndExp->landexp->accept(this);
+            value_ptr result = tr->NewValue();
+            result->ty.tag = KOOPA_TYPE_POINTER;
+            result->ty.data.pointer.base = new type_kind;
+            result->ty.data.pointer.base->tag = KOOPA_TYPE_INT32;
+            result->name = "%result__" + std::to_string(result_id);
+            result_id ++;
+            result->kind.tag = IR_ALLOC;
+            tr->AddValue(result);
+            
+            value_ptr l_val = (value_ptr)LAndExp->landexp->accept(this);
+            // tr->AddValue(l_val);
 
-            // 将该指令添加到当前的基本块中
-            tr->AddValue(l_val);
+            value_ptr br = tr->NewValue();
+            br->kind.tag = IR_BRANCH;
+            br->kind.data.branch.cond = l_val;
+            tr->AddValue(br);
 
-            value_ptr r_val = tr->NewValue();
-            r_val->kind.tag = IR_BINARY;
-            r_val->kind.data.binary.op = NOT_EQ;
-            r_val->kind.data.binary.lhs = new value;
-            r_val->kind.data.binary.lhs->kind.tag = IR_INTEGER;
-            r_val->kind.data.binary.lhs->kind.data.integer.value = 0;
-            r_val->kind.data.binary.rhs = (value_ptr)LAndExp->eqexp->accept(this);
+            basic_block_ptr b1 = tr->NewBasicBlock();
+            b1->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+            br->kind.data.branch.true_bb = b1;
+            tr->AddBasicBlock(b1);
+            basic_block_ptr b2 = tr->NewBasicBlock();
+            b2->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+            tr->AddBasicBlock(b2);
+            br->kind.data.branch.false_bb = b2;
+            basic_block_ptr b3 = tr->NewBasicBlock();
+            b3->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+            tr->AddBasicBlock(b3);
 
-            tr->AddValue(r_val);
 
+            tr->bb_cur = b1;
+            value_ptr r_val = (value_ptr)LAndExp->eqexp->accept(this);
+            value_ptr r_val_l = tr->NewValue();
+            r_val_l->ty.tag = KOOPA_TYPE_INT32;
+            r_val_l->kind.tag = IR_BINARY;
+            r_val_l->kind.data.binary.op = NOT_EQ;
+            r_val_l->kind.data.binary.lhs = new value;
+            r_val_l->kind.data.binary.lhs->kind.tag = IR_INTEGER;
+            r_val_l->kind.data.binary.lhs->kind.data.integer.value = 0;
+            r_val_l->kind.data.binary.rhs = r_val;
+            tr->AddValue(r_val_l);
+            value_ptr store_l = tr->NewValue();
+            store_l->kind.tag = IR_STORE;
+            store_l->kind.data.store.dest = result;
+            store_l->kind.data.store.value = r_val_l;
+            tr->AddValue(store_l);
+            value_ptr jump_l = tr->NewValue();
+            jump_l->kind.tag = IR_JUMP;
+            jump_l->kind.data.jump.target = b3;
+            tr->AddValue(jump_l);
+
+            tr->bb_cur = b2;
+            value_ptr store_r = tr->NewValue();
+            store_r->kind.tag = IR_STORE;
+            store_r->kind.data.store.dest = result;
+            store_r->kind.data.store.value = l_val;
+            tr->AddValue(store_r);
+            value_ptr jump_r = tr->NewValue();
+            jump_r->kind.tag = IR_JUMP;
+            jump_r->kind.data.jump.target = b3;
+            tr->AddValue(jump_r);
+
+            tr->bb_cur = b3;
             value_ptr val = tr->NewValue();
-
-            val->kind.tag = IR_BINARY;
-
-            val->kind.data.binary.op = AND;
-
-            val->kind.data.binary.lhs = l_val;
-            val->kind.data.binary.rhs = r_val;
-
-            // 将该指令添加到当前的基本块中
+            val->ty.tag = KOOPA_TYPE_INT32;
+            val->kind.tag = IR_LOAD;
+            val->kind.data.load.src = result;
             tr->AddValue(val);
             return val;
+            // value_ptr result = tr->NewValue();
+
+            // value_ptr l_val = tr->NewValue();
+            // l_val->kind.tag = IR_BINARY;
+            // l_val->kind.data.binary.op = NOT_EQ;
+            // l_val->kind.data.binary.lhs = new value;
+            // l_val->kind.data.binary.lhs->kind.tag = IR_INTEGER;
+            // l_val->kind.data.binary.lhs->kind.data.integer.value = 0;
+            // l_val->kind.data.binary.rhs = (value_ptr)LAndExp->landexp->accept(this);
+
+            // // 将该指令添加到当前的基本块中
+            // tr->AddValue(l_val);
+
+            // value_ptr r_val = tr->NewValue();
+            // r_val->kind.tag = IR_BINARY;
+            // r_val->kind.data.binary.op = NOT_EQ;
+            // r_val->kind.data.binary.lhs = new value;
+            // r_val->kind.data.binary.lhs->kind.tag = IR_INTEGER;
+            // r_val->kind.data.binary.lhs->kind.data.integer.value = 0;
+            // r_val->kind.data.binary.rhs = (value_ptr)LAndExp->eqexp->accept(this);
+
+            // tr->AddValue(r_val);
+
+            // value_ptr val = tr->NewValue();
+
+            // val->kind.tag = IR_BINARY;
+
+            // val->kind.data.binary.op = AND;
+
+            // val->kind.data.binary.lhs = l_val;
+            // val->kind.data.binary.rhs = r_val;
+
+            // // 将该指令添加到当前的基本块中
+            // tr->AddValue(val);
+            // return val;
         }
     }
     void *visit(LOrExpAST *LOrExp) {
@@ -1650,39 +1725,120 @@ class GenIR : public Visitor {
             return val;
         }
         else {
-            value_ptr l_val = tr->NewValue();
-            l_val->kind.tag = IR_BINARY;
-            l_val->kind.data.binary.op = NOT_EQ;
-            l_val->kind.data.binary.lhs = new value;
-            l_val->kind.data.binary.lhs->kind.tag = IR_INTEGER;
-            l_val->kind.data.binary.lhs->kind.data.integer.value = 0;
-            l_val->kind.data.binary.rhs = (value_ptr)LOrExp->lorexp->accept(this);
+            value_ptr result = tr->NewValue();
+            result->ty.tag = KOOPA_TYPE_POINTER;
+            result->ty.data.pointer.base = new type_kind;
+            result->ty.data.pointer.base->tag = KOOPA_TYPE_INT32;
+            result->name = "%result__" + std::to_string(result_id);
+            result_id ++;
+            result->kind.tag = IR_ALLOC;
+            tr->AddValue(result);
+            
+            value_ptr l_val = (value_ptr)LOrExp->lorexp->accept(this);
+            // tr->AddValue(l_val);
 
-            // 将该指令添加到当前的基本块中
-            tr->AddValue(l_val);
+            value_ptr br = tr->NewValue();
+            br->kind.tag = IR_BRANCH;
+            br->kind.data.branch.cond = l_val;
+            tr->AddValue(br);
 
-            value_ptr r_val = tr->NewValue();
-            r_val->kind.tag = IR_BINARY;
-            r_val->kind.data.binary.op = NOT_EQ;
-            r_val->kind.data.binary.lhs = new value;
-            r_val->kind.data.binary.lhs->kind.tag = IR_INTEGER;
-            r_val->kind.data.binary.lhs->kind.data.integer.value = 0;
-            r_val->kind.data.binary.rhs = (value_ptr)LOrExp->landexp->accept(this);
+            basic_block_ptr b1 = tr->NewBasicBlock();
+            b1->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+            br->kind.data.branch.true_bb = b1;
+            tr->AddBasicBlock(b1);
+            basic_block_ptr b2 = tr->NewBasicBlock();
+            b2->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+            tr->AddBasicBlock(b2);
+            br->kind.data.branch.false_bb = b2;
+            basic_block_ptr b3 = tr->NewBasicBlock();
+            b3->name = "%b" + std::to_string(bb_id);
+            bb_id ++;
+            tr->AddBasicBlock(b3);
 
-            tr->AddValue(r_val);
 
+            tr->bb_cur = b1;
+            value_ptr l_val_l = tr->NewValue();
+            l_val_l->ty.tag = KOOPA_TYPE_INT32;
+            l_val_l->kind.tag = IR_BINARY;
+            l_val_l->kind.data.binary.op = NOT_EQ;
+            l_val_l->kind.data.binary.lhs = new value;
+            l_val_l->kind.data.binary.lhs->kind.tag = IR_INTEGER;
+            l_val_l->kind.data.binary.lhs->kind.data.integer.value = 0;
+            l_val_l->kind.data.binary.rhs = l_val;
+            tr->AddValue(l_val_l);
+            value_ptr store_l = tr->NewValue();
+            store_l->kind.tag = IR_STORE;
+            store_l->kind.data.store.dest = result;
+            store_l->kind.data.store.value = l_val_l;
+            tr->AddValue(store_l);
+            value_ptr jump_l = tr->NewValue();
+            jump_l->kind.tag = IR_JUMP;
+            jump_l->kind.data.jump.target = b3;
+            tr->AddValue(jump_l);
+
+            tr->bb_cur = b2;
+            value_ptr r_val = (value_ptr)LOrExp->landexp->accept(this);
+            value_ptr r_val_l = tr->NewValue();
+            r_val_l->ty.tag = KOOPA_TYPE_INT32;
+            r_val_l->kind.tag = IR_BINARY;
+            r_val_l->kind.data.binary.op = NOT_EQ;
+            r_val_l->kind.data.binary.lhs = new value;
+            r_val_l->kind.data.binary.lhs->kind.tag = IR_INTEGER;
+            r_val_l->kind.data.binary.lhs->kind.data.integer.value = 0;
+            r_val_l->kind.data.binary.rhs = r_val;
+            tr->AddValue(r_val_l);
+            value_ptr store_r = tr->NewValue();
+            store_r->kind.tag = IR_STORE;
+            store_r->kind.data.store.dest = result;
+            store_r->kind.data.store.value = r_val_l;
+            tr->AddValue(store_r);
+            value_ptr jump_r = tr->NewValue();
+            jump_r->kind.tag = IR_JUMP;
+            jump_r->kind.data.jump.target = b3;
+            tr->AddValue(jump_r);
+
+            tr->bb_cur = b3;
             value_ptr val = tr->NewValue();
-
-            val->kind.tag = IR_BINARY;
-
-            val->kind.data.binary.op = OR;
-
-            val->kind.data.binary.lhs = l_val;
-            val->kind.data.binary.rhs = r_val;
-
-            // 将该指令添加到当前的基本块中
+            val->ty.tag = KOOPA_TYPE_INT32;
+            val->kind.tag = IR_LOAD;
+            val->kind.data.load.src = result;
             tr->AddValue(val);
             return val;
+            // value_ptr l_val = tr->NewValue();
+            // l_val->kind.tag = IR_BINARY;
+            // l_val->kind.data.binary.op = NOT_EQ;
+            // l_val->kind.data.binary.lhs = new value;
+            // l_val->kind.data.binary.lhs->kind.tag = IR_INTEGER;
+            // l_val->kind.data.binary.lhs->kind.data.integer.value = 0;
+            // l_val->kind.data.binary.rhs = (value_ptr)LOrExp->lorexp->accept(this);
+
+            // // 将该指令添加到当前的基本块中
+            // tr->AddValue(l_val);
+
+            // value_ptr r_val = tr->NewValue();
+            // r_val->kind.tag = IR_BINARY;
+            // r_val->kind.data.binary.op = NOT_EQ;
+            // r_val->kind.data.binary.lhs = new value;
+            // r_val->kind.data.binary.lhs->kind.tag = IR_INTEGER;
+            // r_val->kind.data.binary.lhs->kind.data.integer.value = 0;
+            // r_val->kind.data.binary.rhs = (value_ptr)LOrExp->landexp->accept(this);
+
+            // tr->AddValue(r_val);
+
+            // value_ptr val = tr->NewValue();
+
+            // val->kind.tag = IR_BINARY;
+
+            // val->kind.data.binary.op = OR;
+
+            // val->kind.data.binary.lhs = l_val;
+            // val->kind.data.binary.rhs = r_val;
+
+            // // 将该指令添加到当前的基本块中
+            // tr->AddValue(val);
+            // return val;
         }
     }
 };
