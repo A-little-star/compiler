@@ -8,7 +8,11 @@
 
 2.（2023.6.27，已解决）目前全局作用域内的数组还不能够正常引用，推测数据结构形式的IR可以正常生成，但是无法正常输出。
 
-3.（2023.7.1，未解决）Koopa IR的类型应该是这样一个逻辑，一个某类型的alloc变量，应该是该类型的指针类型，比如%1 = alloc i32，则%1的类型是\*i32；%2 = alloc [i32, 5]，则%2的类型是\*[i32, 5]；getptr指令不会改变数据的类型，只是指针的偏移运算而已；getelemptr会将数组类型的指针转化成数组的元素类型的指针，如%1的类型是*[i32, 5]，则经过getelemptr指令（%2 = getelemptr %1, 0），%2将会变成*i32类型。这里的类型处理没有处理好
+3.（2023.7.1，已解决）Koopa IR的类型应该是这样一个逻辑，一个某类型的alloc变量，应该是该类型的指针类型，比如%1 = alloc i32，则%1的类型是\*i32；%2 = alloc [i32, 5]，则%2的类型是\*[i32, 5]；getptr指令不会改变数据的类型，只是指针的偏移运算而已；getelemptr会将数组类型的指针转化成数组的元素类型的指针，如%1的类型是*[i32, 5]，则经过getelemptr指令（%2 = getelemptr %1, 0），%2将会变成*i32类型。这里的类型处理没有处理好
+
+4.（2023.7.2，未解决）目前数组的初始化只支持无初始化列表、完全初始化列表两种情形，其他情况过于复杂，暂不支持。
+
+## SysY Compiler
 
 本仓库记录lxc编写的第一个编译器，于2023年五月开始编写；
 
@@ -22,19 +26,22 @@ Koopa IR是参考北京大学编译实践在线文档（ https://pku-minic.githu
 ## 目前所支持的文法规则
 
 ```enbf
-CompUnit      ::= FuncDef;
+CompUnit      ::= [CompUnit] (Decl | FuncDef);
 
 Decl          ::= ConstDecl | VarDecl;
 ConstDecl     ::= "const" BType ConstDef {"," ConstDef} ";";
 BType         ::= "int";
-ConstDef      ::= IDENT "=" ConstInitVal;
-ConstInitVal  ::= ConstExp;
+ConstDef      ::= IDENT {"[" ConstExp "]"} "=" ConstInitVal;
+ConstInitVal  ::= ConstExp | "{" [ConstInitVal {"," ConstInitVal}] "}";
 VarDecl       ::= BType VarDef {"," VarDef} ";";
-VarDef        ::= IDENT | IDENT "=" InitVal;
-InitVal       ::= Exp;
+VarDef        ::= IDENT {"[" ConstExp "]"}
+                | IDENT {"[" ConstExp "]"} "=" InitVal;
+InitVal       ::= Exp | "{" [InitVal {"," InitVal}] "}";
 
-FuncDef       ::= FuncType IDENT "(" ")" Block;
-FuncType      ::= "int";
+FuncDef       ::= FuncType IDENT "(" [FuncFParams] ")" Block;
+FuncType      ::= "void" | "int";
+FuncFParams   ::= FuncFParam {"," FuncFParam};
+FuncFParam    ::= BType IDENT ["[" "]" {"[" ConstExp "]"}];
 
 Block         ::= "{" {BlockItem} "}";
 BlockItem     ::= Decl | Stmt;
@@ -56,11 +63,12 @@ LessStmt     ::= LVal "=" Exp
                 | "continue";
 
 Exp           ::= LOrExp;
-LVal          ::= IDENT;
+LVal          ::= IDENT {"[" Exp "]"};
 PrimaryExp    ::= "(" Exp ")" | LVal | Number;
 Number        ::= INT_CONST;
-UnaryExp      ::= PrimaryExp | UnaryOp UnaryExp;
+UnaryExp      ::= PrimaryExp | IDENT "(" [FuncRParams] ")" | UnaryOp UnaryExp;
 UnaryOp       ::= "+" | "-" | "!";
+FuncRParams   ::= Exp {"," Exp};
 MulExp        ::= UnaryExp | MulExp ("*" | "/" | "%") UnaryExp;
 AddExp        ::= MulExp | AddExp ("+" | "-") MulExp;
 RelExp        ::= AddExp | RelExp ("<" | ">" | "<=" | ">=") AddExp;
@@ -68,11 +76,11 @@ EqExp         ::= RelExp | EqExp ("==" | "!=") RelExp;
 LAndExp       ::= EqExp | LAndExp "&&" EqExp;
 LOrExp        ::= LAndExp | LOrExp "||" LAndExp;
 ConstExp      ::= Exp;
-
 ```
 
 ## IR
 生成抽象语法树AST之后，编译器会遍历AST，生成数据结构形式的Koopa IR，生成的过程写在midend/ast2ir.cpp中。
 
-
+## Risc-V汇编
+汇编的生成方式目前是遍历Koopa IR直接生成文本形式的汇编代码，且目前没有经过任何寄存器的分配策略，这里还需要进行优化。
 
