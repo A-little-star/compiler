@@ -366,12 +366,6 @@ ConstInitVals
   }
 
 VarDecl
-  // : BType VarDefs ';' {
-  //   auto ast = new VarDeclAST();
-  //   ast->btype = *unique_ptr<string>($1);
-  //   ast->vardefs = unique_ptr<BaseAST>($2);
-  //   $$ = ast;
-  // }
   : INT VarDefs ';' {
     auto ast = new VarDeclAST();
     ast->btype = "int";

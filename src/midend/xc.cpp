@@ -75,6 +75,7 @@ void GenCode(const func_ptr func, std::ostream &os) {
 }
 
 void GenCode(const basic_block_ptr bb, std::ostream &os) {
+    if (bb->insts->len == 0) return;
     os << bb->name << ":\n";
     GenCode(bb->insts, os);
 }
@@ -89,7 +90,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
         }
         case IR_ZERO_INIT:
         {
-            os << "zeroinit\n";
+            os << "zeroinit";
             break;
         }
         case IR_AGGREGATE:

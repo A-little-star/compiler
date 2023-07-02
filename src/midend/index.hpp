@@ -11,4 +11,9 @@ struct IndexTree {
     IndexTreeNode *current;
 };
 
+// struct ArrayListTreeNode {
+//     ArrayListTreeNode *father_array_list;
+//     bool 
+// }
+
 extern IndexTree it;

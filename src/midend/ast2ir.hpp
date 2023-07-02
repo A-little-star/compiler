@@ -14,6 +14,7 @@ std::unordered_map<StmtAST*, basic_block_ptr> end_map;
 std::unordered_map<std::string, int> rep_map;
 std::unordered_map<std::string, func_ptr> func_map;
 std::unordered_map<value_ptr, value_ptr> param2value;
+std::unordered_map<value_ptr, int> param2id;
 
 class GenIR : public Visitor {
     void *visit(CompUnitAST *CompUnit) {
@@ -91,8 +92,16 @@ class GenIR : public Visitor {
         if (FuncDef->func_type == "int") func->ty.tag = KOOPA_TYPE_INT32;
         else if (FuncDef->func_type == "void") func->ty.tag = KOOPA_TYPE_UNIT;
         else assert(false);
-        // type_kind *ret_type = (type_kind*)FuncDef->func_type->accept(this);
-        // func->ty = *ret_type;
+
+        // 创建一个新的Basic block，并为其成员变量分配空间；
+        basic_block_ptr bb = tr->NewBasicBlock();
+        bb->name = "%entry";
+        // helper 指针指向当前所在的基本块
+        tr->bb_cur = bb;
+
+        // 将该基本块添加到所在的函数中
+        tr->AddBasicBlock(bb);
+
         // 如果函数有形参列表，那么递归处理函数的形参列表
         if (FuncDef->type == FuncDefAST::HAS_PARAMS) {
             func->params = (slice_ptr)FuncDef->funcfparams->accept(this);
@@ -102,14 +111,7 @@ class GenIR : public Visitor {
             params->len = 0;
             func->params = params;
         }
-        // 创建一个新的Basic block，并为其成员变量分配空间；
-        basic_block_ptr bb = tr->NewBasicBlock();
-        bb->name = "%entry";
-        // helper 指针指向当前所在的基本块
-        tr->bb_cur = bb;
-
-        // 将该基本块添加到所在的函数中
-        tr->AddBasicBlock(bb);
+        
 
         // 更新func_map
         func_map[FuncDef->ident] = func;
@@ -170,6 +172,22 @@ class GenIR : public Visitor {
         fparam->name = "@" + FuncFParam->ident;
         fparam->kind.tag = IR_FUNC_ARG;
         fparam->kind.data.func_arg.index = tr->fp_index_cur;
+
+        // 将该形参在函数中分配出来
+        value_ptr v_alloc = tr->NewValue();
+        v_alloc->name = "%" + FuncFParam->ident;
+        v_alloc->ty.tag = KOOPA_TYPE_POINTER;
+        v_alloc->ty.data.pointer.base = new type_kind;
+        *v_alloc->ty.data.pointer.base = fparam->ty;
+        // v_alloc->ty.tag = param->ty.tag;
+        v_alloc->kind.tag = IR_ALLOC;
+        tr->AddValue(v_alloc);
+        value_ptr v_store = tr->NewValue();
+        v_store->kind.tag = IR_STORE;
+        v_store->kind.data.store.dest = v_alloc;
+        v_store->kind.data.store.value = fparam;
+        tr->AddValue(v_store);
+        param2value[fparam] = v_alloc;
         
         return fparam;
     }
@@ -281,16 +299,12 @@ class GenIR : public Visitor {
                 type_p = type_p->data;
             }
             type_p->tag = I32;
-            // type_p->tag = POINTER;
-            // type_p->data = new type_t;
-            // type_p->data->tag = I32;
             
             if (!tr->is_global) {
                 value_ptr val = tr->NewValue();
                 val->ty.tag = KOOPA_TYPE_POINTER;
                 val->ty.data.pointer.base = new type_kind;
                 tr->arr.clear();
-                // val->ty.tag = KOOPA_TYPE_ARRAY;
                 type_kind *type = val->ty.data.pointer.base;
                 tr->arr.push_back(type);
                 for (size_t i = 0; i < length.size(); i ++ ) {
@@ -301,9 +315,6 @@ class GenIR : public Visitor {
                     tr->arr.push_back(type);
                 }
                 type->tag = KOOPA_TYPE_INT32;
-                // type->tag = KOOPA_TYPE_POINTER;
-                // type->data.pointer.base = new type_kind;
-                // type->data.pointer.base->tag = KOOPA_TYPE_INT32;
                 
                 val->name = "@" + ConstDef->ident + '_' + std::to_string(rep_map[ConstDef->ident]);
                 val->kind.tag = IR_ALLOC;
@@ -314,7 +325,9 @@ class GenIR : public Visitor {
                 bt.current->symtable[ConstDef->ident].val_p = val;
                 
                 // 接下来处理数组的初始化
+                tr->is_array_init = true;
                 ConstDef->constinitval->accept(this);
+                tr->is_array_init = false;
                 tr->arr_cur = NULL;
             }
             else if (tr->is_global) {
@@ -324,18 +337,13 @@ class GenIR : public Visitor {
                 // val->ty.tag = KOOPA_TYPE_ARRAY;
                 // tr->arr.clear();
                 type_kind *type = value_g->ty.data.pointer.base;
-                // tr->arr.push_back(type);
                 for (size_t i = 0; i < length.size(); i ++ ) {
                     type->tag = KOOPA_TYPE_ARRAY;
                     type->data.array.len = length[i];
                     type->data.array.base = new type_kind;
                     type = type->data.array.base;
-                    // tr->arr.push_back(type);
                 }
                 type->tag = KOOPA_TYPE_INT32;
-                // type->tag = KOOPA_TYPE_POINTER;
-                // type->data.pointer.base = new type_kind;
-                // type->data.pointer.base->tag = KOOPA_TYPE_INT32;
                 
 
                 value_g->name = "@" + ConstDef->ident + "_" + std::to_string(rep_map[ConstDef->ident]);
@@ -422,7 +430,7 @@ class GenIR : public Visitor {
         return NULL;
     }
     void *visit(ConstInitValsAST *ConstInitVals) {
-        tr->is_array_init = true;
+        // tr->is_array_init = true;
         if (!tr->is_global) {
             for (size_t i = 0; i < ConstInitVals->constinitvals.size(); i ++ ) {
                 ConstInitVals->constinitvals[i]->accept(this);
@@ -438,7 +446,7 @@ class GenIR : public Visitor {
             }
             return s;
         }
-        tr->is_array_init = false;
+        // tr->is_array_init = false;
         return NULL;
     }
     void *visit(ConstExpsAST *ConstExps) {
@@ -619,9 +627,6 @@ class GenIR : public Visitor {
                 type_p = type_p->data;
             }
             type_p->tag = I32;
-            // type_p->tag = POINTER;
-            // type_p->data = new type_t;
-            // type_p->data->tag = I32;
             
             if (!tr->is_global) {
                 
@@ -630,7 +635,6 @@ class GenIR : public Visitor {
                 val->ty.data.pointer.base = new type_kind;
                 tr->arr.clear();
                 memset(tr->arr_index_cur, 0, sizeof(tr->arr_index_cur));
-                // val->ty.tag = KOOPA_TYPE_ARRAY;
                 type_kind *type = val->ty.data.pointer.base;
                 tr->arr.push_back(type);
                 for (size_t i = 0; i < length.size(); i ++ ) {
@@ -641,9 +645,6 @@ class GenIR : public Visitor {
                     tr->arr.push_back(type);
                 }
                 type->tag = KOOPA_TYPE_INT32;
-                // type->tag = KOOPA_TYPE_POINTER;
-                // type->data.pointer.base = new type_kind;
-                // type->data.pointer.base->tag = KOOPA_TYPE_INT32;
                 val->name = "@" + VarDef->ident + '_' + std::to_string(rep_map[VarDef->ident]);
                 val->kind.tag = IR_ALLOC;
                 tr->AddValue(val);
@@ -652,20 +653,18 @@ class GenIR : public Visitor {
                 bt.current->symtable[VarDef->ident].val_p = val;
                 
                 // 接下来处理数组的初始化
-                
+                tr->is_array_init = true;
                 if (VarDef->type == VarDefAST::HAS_VALUE) {
-                    printf("Start to init array.\n");
                     VarDef->initval->accept(this);
-                    printf("Array init successfully.\n");
                     bt.current->symtable[VarDef->ident].has_value = true;
                 }
+                tr->is_array_init = false;
                 tr->arr_cur = NULL;
             }
             else if (tr->is_global) {
                 value_ptr value_g = tr->NewValue();
                 value_g->ty.tag = KOOPA_TYPE_POINTER;
                 value_g->ty.data.pointer.base = new type_kind;
-                // val->ty.tag = KOOPA_TYPE_ARRAY;
                 type_kind *type = value_g->ty.data.pointer.base;
                 for (size_t i = 0; i < length.size(); i ++ ) {
                     type->tag = KOOPA_TYPE_ARRAY;
@@ -674,9 +673,6 @@ class GenIR : public Visitor {
                     type = type->data.array.base;
                 }
                 type->tag = KOOPA_TYPE_INT32;
-                // type->tag = KOOPA_TYPE_POINTER;
-                // type->data.pointer.base = new type_kind;
-                // type->data.pointer.base->tag = KOOPA_TYPE_INT32;
                 value_g->name = "@" + VarDef->ident + "_" + std::to_string(rep_map[VarDef->ident]);
                 value_g->kind.tag = IR_GLOBAL_ALLOC;
 
@@ -702,7 +698,6 @@ class GenIR : public Visitor {
                     return val;
                 }
                 else {
-                    // printf("There is init of array!\n");
                     value_ptr store = tr->NewValue();
                     store->kind.tag = IR_STORE;
                     value_ptr dest = tr->arr_cur;
@@ -713,25 +708,18 @@ class GenIR : public Visitor {
                         return NULL;
                     }
                     int dim = tr->arr.size() - 1 - tr->GetDim(*dest->ty.data.pointer.base);
-                    // std::vector<value_ptr> arr;
-                    // arr.push_back(dest);
-                    // while (dest->ty.tag != KOOPA_TYPE_POINTER) {
                     while (dest->ty.data.pointer.base->tag != KOOPA_TYPE_INT32) {
-                        // printf("iiii\n");
                         value_ptr getelem = tr->NewValue();
-                        // getelem->ty = *dest->ty.data.array.base;
                         getelem->ty.tag = KOOPA_TYPE_POINTER;
                         getelem->ty.data.pointer.base = dest->ty.data.pointer.base->data.array.base;
                         getelem->kind.tag = IR_GET_ELEM_PTR;
                         getelem->kind.data.get_elem_ptr.index = new value;
                         getelem->kind.data.get_elem_ptr.index->kind.tag = IR_INTEGER;
-                        // dim = tr->GetDim(getelem->ty);
                         getelem->kind.data.get_elem_ptr.index->kind.data.integer.value = tr->arr_index_cur[dim];
                         getelem->kind.data.get_elem_ptr.src = dest;
                         dim ++;
                         tr->AddValue(getelem);
                         dest = getelem;
-                        // arr.push_back(dest);
                         tr->arr_cur = getelem;
                     }
                     tr->arr_cur = tr->arr_cur->kind.data.get_elem_ptr.src;
@@ -740,7 +728,6 @@ class GenIR : public Visitor {
                         dim --;
                         tr->arr_cur = tr->arr_cur->kind.data.get_elem_ptr.src;
                     }
-                    // tr->arr_index_cur[dim - 1] ++;
                     store->kind.data.store.dest = dest;
                     store->kind.data.store.value = (value_ptr)InitVal->exp->accept(this);
                     tr->AddValue(store);
@@ -771,7 +758,7 @@ class GenIR : public Visitor {
         return NULL;
     }
     void *visit(InitValsAST *InitVals) {
-        tr->is_array_init = true;
+        // tr->is_array_init = true;
         if (!tr->is_global) {
             for (size_t i = 0; i < InitVals->initvals.size(); i ++ ) {
                 InitVals->initvals[i]->accept(this);
@@ -787,18 +774,14 @@ class GenIR : public Visitor {
             }
             return s;
         }
-        tr->is_array_init = false;
+        // tr->is_array_init = false;
         return NULL;
     }
     void *visit(ExpsAST *Exps) {
-        // static std::vector<value_ptr> indexs;
-        // indexs.clear();
         for (size_t i = 0; i < Exps->exps.size(); i ++ ) {
             it.current->indexs.push_back((value_ptr)Exps->exps[i]->accept(this));
-            // indexs.push_back((value_ptr)Exps->exps[i]->accept(this));
         }
         return NULL;
-        // return &indexs;
     }
     void *visit(StmtAST *Stmt) {
         tr->stmt_cur = Stmt;
