@@ -7,6 +7,7 @@
 #include "./frontend/AST.hpp"
 #include "./midend/xc.hpp"
 #include "./midend/ast2ir.hpp"
+#include "./backend/riscv.hpp"
 
 using namespace std;
 
@@ -21,6 +22,7 @@ int val_id = 0;
 int max_id = 0;
 
 // prog_ptr prog = NULL;
+RiscvProgram *riscvprogram;
 
 int main(int argc, const char *argv[]) {
   // 解析命令行参数. 测试脚本/评测平台要求你的编译器能接收如下参数:
@@ -84,91 +86,29 @@ int main(int argc, const char *argv[]) {
     // 遍历数据结构形式的IR，生成RISC-V汇编
     ofstream file_o(output);
     if (file_o.is_open()) {
-      ir2riscv(prog, file_o);
+      ir2riscv(prog, std::cout);
+      riscvprogram->Dump(file_o);
       file_o.close();
     }
     else 
       cout << "main.cpp: Unable to create the output file." << endl;
 
     // 将output文件中的内容打印出来显示
-    ifstream file_i(output);
-    if (file_i.is_open()) {
-      string line;
-      while (getline(file_i, line)) {
-        cout << line << endl;
-      }
-      file_i.close();
-    }
-    else
-      cout << "main.cpp: Unable to create the input file." << endl;
+    // riscvprogram->Dump(std::cout);
+    // ifstream file_i(output);
+    // if (file_i.is_open()) {
+    //   string line;
+    //   while (getline(file_i, line)) {
+    //     cout << line << endl;
+    //   }
+    //   file_i.close();
+    // }
+    // else
+    //   cout << "main.cpp: Unable to create the input file." << endl;
     
     delete v;
     v = NULL;
     FreeMem(prog);
   }
-  else if (strcmp(mode, "-all") == 0) {
-    // 构造一个生成IR的Visitor类，调用accept()方法生成数据结构形式的koopa IR
-    auto v = new GenIR();
-    prog_ptr prog = (prog_ptr)ast->accept(v);
-
-    // 遍历数据结构形式的koopa IR，转化成文本形式输出到output文件中
-    ofstream file_o(output);
-    if (file_o.is_open()) {
-      irDS2Text(prog, file_o);
-      file_o.close();
-    }
-    else 
-      cout << "main.cpp: Unable to create the output file." << endl;
-
-    // 将output文件中的内容打印出来显示
-    ifstream file_i(output);
-    if (file_i.is_open()) {
-      string line;
-      while (getline(file_i, line)) {
-        cout << line << endl;
-      }
-      file_i.close();
-    }
-    else
-      cout << "main.cpp: Unable to create the input file." << endl;
-
-
-    // 遍历数据结构形式的IR，生成RISC-V汇编
-    ofstream file_o2(output);
-    if (file_o2.is_open()) {
-      ir2riscv(prog, file_o2);
-      file_o2.close();
-    }
-    else 
-      cout << "main.cpp: Unable to create the output file." << endl;
-
-    // 将output文件中的内容打印出来显示
-    ifstream file_i2(output);
-    if (file_i2.is_open()) {
-      string line;
-      while (getline(file_i2, line)) {
-        cout << line << endl;
-      }
-      file_i2.close();
-    }
-    else
-      cout << "main.cpp: Unable to create the input file." << endl;
-    
-    delete v;
-    v = NULL;
-    FreeMem(prog);
-  }
-  
-  // 输出解析得到的 AST, 其实就是个字符串
-  // string ast_str = ast->Dump();
-  // const char *ast_str_ptr = ast_str.c_str();
-  // if (strcmp(mode, "-koopa") == 0)
-  // {
-  //   cout << ast_str << endl;
-  //   fstream file;
-  //   file.open(output, ios::out);
-  //   file.write(ast_str_ptr, (int)ast_str.size());
-  //   file.close();
-  // }
   return 0;
 }

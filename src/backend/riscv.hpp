@@ -57,12 +57,13 @@ class RiscvInstr {
         NEG,
         J,
         BEQZ,
+        BNEZ,
         RET,
         LW,
         LI,
         LA,
         SW,
-        MOVE,
+        MV,
         XOR,
         NOT,
         SEQZ,
@@ -74,6 +75,7 @@ class RiscvInstr {
         GEQ,
         GRT,
         SLT,
+        SGT,
         LAND,
         LOR,
         AND,
@@ -85,16 +87,20 @@ class RiscvInstr {
     } op_code;
 
     RiscvReg *r0, *r1, *r2; // 分别为目的操作数、第一个源操作数、第二个源操作数
-    int i;                  // 立即数的偏移量
-    std::string l;          // 跳转目标。只对跳转指令有效
+    int imm;                // 立即数的偏移量
+    std::string label;          // 跳转目标。只对跳转指令有效
+
+    void Dump(std::ostream &os);
 };
 
 class RiscvBasicBlock {
     public:
     std::string name;
-    std::vector<RiscvInstr> instr;
+    std::vector<RiscvInstr*> instr;
 
-    void AddInstr(RiscvInstr v) {
+    void Dump(std::ostream &os);
+
+    void AddInstr(RiscvInstr *v) {
         instr.push_back(v);
     }
 };
@@ -102,10 +108,16 @@ class RiscvBasicBlock {
 class RiscvFunc {
     public:
     std::string name;
-    std::vector<RiscvBasicBlock> bbs;
+    std::vector<RiscvBasicBlock*> bbs;
 
-    void AddBasicBlock(RiscvBasicBlock v) {
+    void Dump(std::ostream &os);
+
+    void AddBasicBlock(RiscvBasicBlock *v) {
         bbs.push_back(v);
+    }
+    void AddInstr(RiscvInstr *v) {
+        RiscvBasicBlock *bb_cur = bbs[bbs.size() - 1];
+        bb_cur->AddInstr(v);
     }
 };
 
@@ -116,37 +128,58 @@ class RiscvValueInit {
         word,
     } type;
     int value;
+    void Dump(std::ostream &os);
 };
 
 class RiscvGlobalValue {
     public:
     std::string name;
-    std::vector<RiscvValueInit> init;
+    std::vector<RiscvValueInit*> init;
 
-    void AddInit(RiscvValueInit v) {
+    void Dump(std::ostream &os);
+
+    void AddInit(RiscvValueInit *v) {
         init.push_back(v);
     }
 };
 
 class RiscvData {
     public:
-    std::vector<RiscvGlobalValue> data;
+    std::vector<RiscvGlobalValue*> data;
 
-    void AddData(RiscvGlobalValue v) {
+    void Dump(std::ostream &os);
+
+    void AddGlobalValue(RiscvGlobalValue *v) {
         data.push_back(v);
     }
 };
 
 class RiscvProgram {
-    private:
-    RiscvReg *reg[RiscvReg::TOTAL_NUM];
-    RiscvBasicBlock *bb_cur;
     public:
-    RiscvProgram();
-    std::vector<RiscvData> data_segment;
-    std::vector<RiscvFunc> func_segment;
+    RiscvReg *reg[RiscvReg::TOTAL_NUM];
 
-    void AddInstr(RiscvInstr v) {
-        bb_cur->AddInstr(v);
+    RiscvProgram();
+    std::vector<RiscvData*> data_segment;
+    std::vector<RiscvFunc*> func_segment;
+
+    void Dump(std::ostream &os);
+
+    void AddData(RiscvData *v) {
+        data_segment.push_back(v);
+    }
+    void AddFunc(RiscvFunc *v) {
+        func_segment.push_back(v);
+    }
+    void AddBasicBlock(RiscvBasicBlock *v) {
+        RiscvFunc *func_cur = func_segment[func_segment.size() - 1];
+        func_cur->AddBasicBlock(v);
+    }
+    void AddGlobalValue(RiscvGlobalValue *v) {
+        RiscvData *data_cur = data_segment[data_segment.size() - 1];
+        data_cur->AddGlobalValue(v);
+    }
+    void AddInstr(RiscvInstr *v) {
+        RiscvFunc *func_cur = func_segment[func_segment.size() - 1];
+        func_cur->AddInstr(v);
     }
 };
