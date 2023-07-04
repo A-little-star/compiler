@@ -799,9 +799,13 @@ class GenIR : public Visitor {
         val->kind.data.branch.cond = (value_ptr)OpenStmt->exp->accept(this);
         tr->AddValue(val);
         if (OpenStmt->type == OpenStmtAST::IF) {
+            basic_block_ptr bb_f = tr->bb_cur;
             // 创建一个基本块，作为条件为true时所跳转的基本块
             basic_block_ptr bb = tr->NewBasicBlock();
             tr->AddBasicBlock(bb);
+
+            bb_f->next.push_back(bb);
+
             tr->bb_cur = bb;
             val->kind.data.branch.true_bb = bb;
             bb->name = "%b" + std::to_string(bb_id);
@@ -815,6 +819,10 @@ class GenIR : public Visitor {
             // 创建一个新的基本块，作为分支指令创建的基本块的出口
             basic_block_ptr bb_end = tr->NewBasicBlock();
             tr->AddBasicBlock(bb_end);
+
+            bb_f->next.push_back(bb_end);
+            bb->next.push_back(bb_end);
+
             tr->bb_cur = bb_end;
             bb_end->name = "%b" + std::to_string(bb_id);
             bb_id ++;
@@ -825,9 +833,13 @@ class GenIR : public Visitor {
             val_j1->kind.data.jump.target = bb_end;
         }
         else if (OpenStmt->type == OpenStmtAST::IF_ELSE) {
+            basic_block_ptr bb_f = tr->bb_cur;
             // 创建一个新的基本块，作为条件为true时跳转的基本块
             basic_block_ptr bb_true = tr->NewBasicBlock();
             tr->AddBasicBlock(bb_true);
+
+            bb_f->next.push_back(bb_true);
+
             tr->bb_cur = bb_true;
             val->kind.data.branch.true_bb = bb_true;
             bb_true->name = "%b" + std::to_string(bb_id);
@@ -841,6 +853,9 @@ class GenIR : public Visitor {
             // 创建一个基本块，作为条件为false时跳转的基本块
             basic_block_ptr bb_false = tr->NewBasicBlock();
             tr->AddBasicBlock(bb_false);
+
+            bb_f->next.push_back(bb_false);
+
             tr->bb_cur = bb_false;
             val->kind.data.branch.false_bb = bb_false;
             bb_false->name = "%b" + std::to_string(bb_id);
@@ -855,6 +870,10 @@ class GenIR : public Visitor {
             
             basic_block_ptr bb_end = tr->NewBasicBlock();
             tr->AddBasicBlock(bb_end);
+
+            bb_true->next.push_back(bb_end);
+            bb_false->next.push_back(bb_end);
+
             tr->bb_cur = bb_end;
             bb_end->name = "%b" + std::to_string(bb_id);
             bb_id ++;
@@ -874,6 +893,7 @@ class GenIR : public Visitor {
             ClosedStmt->nonifstmt->accept(this);
         }
         else if (ClosedStmt->type == ClosedStmtAST::IF_ELSE) {
+            basic_block_ptr bb_f = tr->bb_cur;
             // 创建一条新的branch指令
             value_ptr val = tr->NewValue();
             val->kind.tag = IR_BRANCH;
@@ -882,6 +902,9 @@ class GenIR : public Visitor {
             // 创建条件为true时应该跳转的基本块
             basic_block_ptr bb_true = tr->NewBasicBlock();
             tr->AddBasicBlock(bb_true);
+
+            bb_f->next.push_back(bb_true);
+            
             tr->bb_cur = bb_true;
             val->kind.data.branch.true_bb = bb_true;
             bb_true->name = "%b" + std::to_string(bb_id);
@@ -894,6 +917,9 @@ class GenIR : public Visitor {
             // 创建条件为false时应该跳转的基本块
             basic_block_ptr bb_false = tr->NewBasicBlock();
             tr->AddBasicBlock(bb_false);
+
+            bb_f->next.push_back(bb_false);
+
             tr->bb_cur = bb_false;
             val->kind.data.branch.false_bb = bb_false;
             bb_false->name = "%b" + std::to_string(bb_id);
@@ -906,6 +932,10 @@ class GenIR : public Visitor {
             // 创建收尾基本块，分支执行完之后将跳转到这里
             basic_block_ptr bb_end = tr->NewBasicBlock();
             tr->AddBasicBlock(bb_end);
+
+            bb_true->next.push_back(bb_end);
+            bb_false->next.push_back(bb_end);
+
             bb_end->name = "%b" + std::to_string(bb_id);
             bb_id ++;
             tr->bb_cur = bb_end;
@@ -943,14 +973,18 @@ class GenIR : public Visitor {
             while_entry->name = "%b" + std::to_string(bb_id);
             bb_id ++;
             tr->AddBasicBlock(while_entry);
+            tr->bb_cur->next.push_back(while_entry);
             basic_block_ptr while_body = tr->NewBasicBlock();
             while_body->name = "%b" + std::to_string(bb_id);
             bb_id ++;
             tr->AddBasicBlock(while_body);
+            while_entry->next.push_back(while_body);
+            while_body->next.push_back(while_entry);
             basic_block_ptr end = tr->NewBasicBlock();
             end->name = "%b" + std::to_string(bb_id);
             bb_id ++;
             tr->AddBasicBlock(end);
+            while_entry->next.push_back(end);
 
             val_j1->kind.data.jump.target = while_entry;
 
@@ -1016,14 +1050,18 @@ class GenIR : public Visitor {
             while_entry->name = "%b" + std::to_string(bb_id);
             bb_id ++;
             tr->AddBasicBlock(while_entry);
+            tr->bb_cur->next.push_back(while_entry);
             basic_block_ptr while_body = tr->NewBasicBlock();
             while_body->name = "%b" + std::to_string(bb_id);
             bb_id ++;
             tr->AddBasicBlock(while_body);
+            while_entry->next.push_back(while_body);
+            while_body->next.push_back(while_entry);
             basic_block_ptr end = tr->NewBasicBlock();
             end->name = "%b" + std::to_string(bb_id);
             bb_id ++;
             tr->AddBasicBlock(end);
+            while_entry->next.push_back(end);
 
             val_j1->kind.data.jump.target = while_entry;
 
@@ -1631,16 +1669,20 @@ class GenIR : public Visitor {
             b1->name = "%b" + std::to_string(bb_id);
             bb_id ++;
             br->kind.data.branch.true_bb = b1;
+            tr->bb_cur->next.push_back(b1);
             tr->AddBasicBlock(b1);
             basic_block_ptr b2 = tr->NewBasicBlock();
             b2->name = "%b" + std::to_string(bb_id);
             bb_id ++;
             tr->AddBasicBlock(b2);
             br->kind.data.branch.false_bb = b2;
+            tr->bb_cur->next.push_back(b2);
             basic_block_ptr b3 = tr->NewBasicBlock();
             b3->name = "%b" + std::to_string(bb_id);
             bb_id ++;
             tr->AddBasicBlock(b3);
+            b1->next.push_back(b3);
+            b2->next.push_back(b3);
 
 
             tr->bb_cur = b1;
@@ -1682,41 +1724,6 @@ class GenIR : public Visitor {
             val->kind.data.load.src = result;
             tr->AddValue(val);
             return val;
-            // value_ptr result = tr->NewValue();
-
-            // value_ptr l_val = tr->NewValue();
-            // l_val->kind.tag = IR_BINARY;
-            // l_val->kind.data.binary.op = NOT_EQ;
-            // l_val->kind.data.binary.lhs = new value;
-            // l_val->kind.data.binary.lhs->kind.tag = IR_INTEGER;
-            // l_val->kind.data.binary.lhs->kind.data.integer.value = 0;
-            // l_val->kind.data.binary.rhs = (value_ptr)LAndExp->landexp->accept(this);
-
-            // // 将该指令添加到当前的基本块中
-            // tr->AddValue(l_val);
-
-            // value_ptr r_val = tr->NewValue();
-            // r_val->kind.tag = IR_BINARY;
-            // r_val->kind.data.binary.op = NOT_EQ;
-            // r_val->kind.data.binary.lhs = new value;
-            // r_val->kind.data.binary.lhs->kind.tag = IR_INTEGER;
-            // r_val->kind.data.binary.lhs->kind.data.integer.value = 0;
-            // r_val->kind.data.binary.rhs = (value_ptr)LAndExp->eqexp->accept(this);
-
-            // tr->AddValue(r_val);
-
-            // value_ptr val = tr->NewValue();
-
-            // val->kind.tag = IR_BINARY;
-
-            // val->kind.data.binary.op = AND;
-
-            // val->kind.data.binary.lhs = l_val;
-            // val->kind.data.binary.rhs = r_val;
-
-            // // 将该指令添加到当前的基本块中
-            // tr->AddValue(val);
-            // return val;
         }
     }
     void *visit(LOrExpAST *LOrExp) {
@@ -1747,15 +1754,19 @@ class GenIR : public Visitor {
             bb_id ++;
             br->kind.data.branch.true_bb = b1;
             tr->AddBasicBlock(b1);
+            tr->bb_cur->next.push_back(b1);
             basic_block_ptr b2 = tr->NewBasicBlock();
             b2->name = "%b" + std::to_string(bb_id);
             bb_id ++;
             tr->AddBasicBlock(b2);
             br->kind.data.branch.false_bb = b2;
+            tr->bb_cur->next.push_back(b2);
             basic_block_ptr b3 = tr->NewBasicBlock();
             b3->name = "%b" + std::to_string(bb_id);
             bb_id ++;
             tr->AddBasicBlock(b3);
+            b1->next.push_back(b3);
+            b2->next.push_back(b3);
 
 
             tr->bb_cur = b1;
@@ -1806,39 +1817,6 @@ class GenIR : public Visitor {
             val->kind.data.load.src = result;
             tr->AddValue(val);
             return val;
-            // value_ptr l_val = tr->NewValue();
-            // l_val->kind.tag = IR_BINARY;
-            // l_val->kind.data.binary.op = NOT_EQ;
-            // l_val->kind.data.binary.lhs = new value;
-            // l_val->kind.data.binary.lhs->kind.tag = IR_INTEGER;
-            // l_val->kind.data.binary.lhs->kind.data.integer.value = 0;
-            // l_val->kind.data.binary.rhs = (value_ptr)LOrExp->lorexp->accept(this);
-
-            // // 将该指令添加到当前的基本块中
-            // tr->AddValue(l_val);
-
-            // value_ptr r_val = tr->NewValue();
-            // r_val->kind.tag = IR_BINARY;
-            // r_val->kind.data.binary.op = NOT_EQ;
-            // r_val->kind.data.binary.lhs = new value;
-            // r_val->kind.data.binary.lhs->kind.tag = IR_INTEGER;
-            // r_val->kind.data.binary.lhs->kind.data.integer.value = 0;
-            // r_val->kind.data.binary.rhs = (value_ptr)LOrExp->landexp->accept(this);
-
-            // tr->AddValue(r_val);
-
-            // value_ptr val = tr->NewValue();
-
-            // val->kind.tag = IR_BINARY;
-
-            // val->kind.data.binary.op = OR;
-
-            // val->kind.data.binary.lhs = l_val;
-            // val->kind.data.binary.rhs = r_val;
-
-            // // 将该指令添加到当前的基本块中
-            // tr->AddValue(val);
-            // return val;
         }
     }
 };

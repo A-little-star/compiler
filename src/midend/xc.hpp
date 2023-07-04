@@ -2,6 +2,7 @@
 #define XC_HPP
 #include <iostream>
 #include <vector>
+#include <unordered_set>
 typedef unsigned int u32;
 
 struct value;
@@ -245,15 +246,19 @@ struct value {
     slice_ptr used_by;
     // 指令(操作数)的类型
     inst_kind kind;
+    // 活跃变量集
+    std::unordered_set<value_ptr> liveout;
 };
 
 typedef value *value_ptr;
 
-typedef struct {
+typedef struct program {
     // Global values.
     slice_ptr values;
     // Function definitions.
     slice_ptr funcs;
+
+    void AnalyzeLiveness();
 } program;
 
 typedef program *prog_ptr;
@@ -267,6 +272,8 @@ typedef struct function {
     slice_ptr params;
     // Basic blocks, empty if is a functino declaration.
     slice_ptr bbs;
+
+    void AnalyzeLiveness();
 } function;
 
 
@@ -276,10 +283,22 @@ struct basic_block {
     std::string name;
     // Parameters of basic block, will be used in SSA optimistic.
     slice_ptr params;
-    // Values that this basic block is used by.（暂时不知道有什么用）
-    slice_ptr used_by;
     // Instructions in this basic block.
     slice_ptr insts;
+    // 
+    std::vector<basic_block_ptr> next;
+    // Values that this basic block define.
+    std::unordered_set<value_ptr> def;
+    // Values that this basic block is used by.
+    std::unordered_set<value_ptr> liveuse;
+    std::unordered_set<value_ptr> livein;
+    std::unordered_set<value_ptr> liveout;
+
+    void UpdateLU(value_ptr v);
+    void UpdateDEF(value_ptr v);
+    void ComputeDefAndLiveUse();
+
+    void Dump(std::ostream &os);
 };
 
 
@@ -290,5 +309,7 @@ void FreeMem(prog_ptr prog);
 int CalStackMem(const func_ptr func);
 
 void ir2riscv(const prog_ptr prog, std::ostream &os);
+
+void DumpFlowGraph(const prog_ptr prog, std::ostream &os);
 
 #endif

@@ -111,8 +111,6 @@ class Translate_Helper {
         
         basic_block_ptr NewBasicBlock() {
             basic_block_ptr bb = new basic_block;
-            bb->used_by = new slice;
-            bb->used_by->len = 0;
             bb->params = new slice;
             bb->params->len = 0;
             bb->insts = new slice;

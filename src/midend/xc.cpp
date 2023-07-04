@@ -474,7 +474,6 @@ void FreeMem(func_ptr func) {
 }
 
 void FreeMem(basic_block_ptr bb) {
-    FreeMem(bb->used_by);
     FreeMem(bb->params);
     FreeMem(bb->insts);
     delete bb;

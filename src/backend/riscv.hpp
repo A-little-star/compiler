@@ -182,4 +182,14 @@ class RiscvProgram {
         RiscvFunc *func_cur = func_segment[func_segment.size() - 1];
         func_cur->AddInstr(v);
     }
+    void AddInstr(RiscvInstr::OpCode op_code, RiscvReg *r0, RiscvReg *r1, RiscvReg *r2, int imm, std::string label) {
+        RiscvInstr *instr = new RiscvInstr;
+        instr->op_code = op_code;
+        instr->r0 = r0;
+        instr->r1 = r1;
+        instr->r2 = r2;
+        instr->imm = imm;
+        instr->label = label;
+        AddInstr(instr);
+    }
 };

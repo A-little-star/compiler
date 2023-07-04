@@ -52,6 +52,10 @@ int main(int argc, const char *argv[]) {
 
     printf("Koopa IR is built successfully!\n");
 
+    prog->AnalyzeLiveness();
+
+    printf("Liveness is built!\n");
+
     // 遍历数据结构形式的koopa IR，转化成文本形式输出到output文件中
     ofstream file_o(output);
     if (file_o.is_open()) {
@@ -73,6 +77,8 @@ int main(int argc, const char *argv[]) {
     else
       cout << "main.cpp: Unable to create the input file." << endl;
 
+    DumpFlowGraph(prog, std::cout);
+
     // 释放IR所占用的内存
     delete v;
     v = NULL;
@@ -87,6 +93,7 @@ int main(int argc, const char *argv[]) {
     ofstream file_o(output);
     if (file_o.is_open()) {
       ir2riscv(prog, std::cout);
+      
       riscvprogram->Dump(file_o);
       file_o.close();
     }
