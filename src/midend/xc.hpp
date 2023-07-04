@@ -247,6 +247,8 @@ struct value {
     slice_ptr used_by;
     // 指令(操作数)的类型
     inst_kind kind;
+    // 在栈中的偏移量
+    int offset;
     // 活跃变量集
     std::set<value_ptr> liveout;
 };

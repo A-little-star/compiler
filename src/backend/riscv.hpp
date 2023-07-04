@@ -1,5 +1,7 @@
 #include "../midend/xc.hpp"
 
+typedef std::set<value_ptr> LiveSet;
+
 class RiscvReg {
     public:
     enum {
@@ -163,6 +165,13 @@ class RiscvProgram {
     std::vector<RiscvFunc*> func_segment;
 
     void Dump(std::ostream &os);
+
+    int GetRegForRead(value_ptr v, int avoid1, LiveSet &live);
+    int GetRegForWrite(value_ptr v, int avoid1, int avoid2, LiveSet &live);
+    int lookupReg(value_ptr v);
+    int selectRegToSpill(int avoid1, int avoid2, LiveSet &live);
+    void spillReg(int i, LiveSet &live);
+    void SpillDirtyRegs(LiveSet &live);
 
     void AddData(RiscvData *v) {
         data_segment.push_back(v);

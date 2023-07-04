@@ -129,3 +129,105 @@ void RiscvInstr::Dump(std::ostream &os) {
         default: assert(false);
     }
 }
+
+int RiscvProgram::GetRegForRead(value_ptr v, int avoid1, LiveSet &live) {
+    int i = lookupReg(v);
+    if (i < 0) {
+        i = lookupReg(NULL);
+
+        if (i < 0) {
+            i = selectRegToSpill(avoid1, RiscvReg::zero, live);
+            spillReg(i, live);
+        }
+
+        reg[i]->var = v;
+
+        AddInstr(RiscvInstr::LW, reg[i], reg[RiscvReg::sp], NULL, v->offset, "");
+
+        reg[i]->dirty = false;
+    }
+    return i;
+}
+
+int RiscvProgram::GetRegForWrite(value_ptr v, int avoid1, int avoid2, LiveSet &live) {
+    if (v == NULL || live.count(v) == 0)
+        return RiscvReg::zero;
+
+    int i = lookupReg(v);
+
+    if (i < 0) {
+        i = lookupReg(NULL);
+
+        if (i < 0) {
+            i = selectRegToSpill(avoid1, avoid2, live);
+            spillReg(i, live);
+        }
+        reg[i]->var = v;
+    }
+
+    reg[i]->dirty = true;
+    return i;
+}
+
+int RiscvProgram::lookupReg(value_ptr v) {
+    for (int i = 0; i < RiscvReg::TOTAL_NUM; i ++ )
+        if (reg[i]->general && reg[i]->var == v)
+            return i;
+
+    return -1;
+}
+
+int RiscvProgram::selectRegToSpill(int avoid1, int avoid2, LiveSet& live) {
+    // 寻找一个已经不活跃的寄存器
+    for (int i = 0; i < RiscvReg::TOTAL_NUM; i ++ ) {
+        if (!reg[i]->general)
+            continue;
+        if ((i != avoid1) && (i != avoid2) && live.count(reg[i]->var) == 0)
+            return i;
+    }
+
+    // 寻找一个clean的寄存器
+    for (int i = 0; i < RiscvReg::TOTAL_NUM; i ++ ) {
+        if (!reg[i]->general)
+            continue;
+        if ((i != avoid1) && (i != avoid2) && !reg[i]->dirty)
+            return i;
+    }
+
+    // 最坏的情况，所有的寄存器中存放的变量都是活跃且dirty的
+    int lastUsedReg = 0;
+    do {
+        lastUsedReg = (lastUsedReg + 1) % RiscvReg::TOTAL_NUM;
+    } while ((lastUsedReg == avoid1) || (lastUsedReg == avoid2) || !reg[lastUsedReg]->general);
+
+    return lastUsedReg;
+}
+
+void RiscvProgram::spillReg(int i, LiveSet &live) {
+    value_ptr v = reg[i]->var;
+
+    if ((v != NULL) && reg[i]->dirty && live.count(v) != 0) {
+        AddInstr(RiscvInstr::SW, reg[i], reg[RiscvReg::sp], NULL, v->offset, "");
+    }
+
+    reg[i]->var = NULL;
+    reg[i]->dirty = false;
+}
+
+
+void RiscvProgram::SpillDirtyRegs(LiveSet &live) {
+    int i;
+
+    for (i = 0; i < RiscvReg::TOTAL_NUM; i ++ ) {
+        if ((reg[i]->var != NULL) && reg[i]->dirty && live.count(reg[i]->var))
+            break;
+
+        reg[i]->var = NULL;
+        reg[i]->dirty = false;
+    }
+    
+    if (i < RiscvReg::TOTAL_NUM) {
+        for (; i < RiscvReg::TOTAL_NUM; i ++ )
+            spillReg(i, live);
+    }
+}
