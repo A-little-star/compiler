@@ -30,6 +30,26 @@ void basic_block::Dump(std::ostream &os) {
         }
     }
     os << std::endl;
+    os << "    LiveIn: ";
+    for (const auto &element : livein) {
+        if (element->name != "") {
+            os << element->name << "  ";
+        }
+        else {
+            os << "%" << val_map[element] << "  ";
+        }
+    }
+    os << std::endl;
+    os << "    LiveOut: ";
+    for (const auto &element : liveout) {
+        if (element->name != "") {
+            os << element->name << "  ";
+        }
+        else {
+            os << "%" << val_map[element] << "  ";
+        }
+    }
+    os << std::endl;
 }
 
 void DumpFlowGraph(const prog_ptr prog, std::ostream &os) {

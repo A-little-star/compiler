@@ -67,6 +67,7 @@
         "thread": "cpp",
         "typeindex": "cpp",
         "variant": "cpp",
-        "cfenv": "cpp"
+        "cfenv": "cpp",
+        "unordered_set": "cpp"
     }
 }

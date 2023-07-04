@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <unordered_set>
+#include <set>
 typedef unsigned int u32;
 
 struct value;
@@ -247,7 +248,7 @@ struct value {
     // 指令(操作数)的类型
     inst_kind kind;
     // 活跃变量集
-    std::unordered_set<value_ptr> liveout;
+    std::set<value_ptr> liveout;
 };
 
 typedef value *value_ptr;
@@ -288,15 +289,20 @@ struct basic_block {
     // 
     std::vector<basic_block_ptr> next;
     // Values that this basic block define.
-    std::unordered_set<value_ptr> def;
-    // Values that this basic block is used by.
-    std::unordered_set<value_ptr> liveuse;
-    std::unordered_set<value_ptr> livein;
-    std::unordered_set<value_ptr> liveout;
+    // std::unordered_set<value_ptr> def;
+    // // Values that this basic block is used by.
+    // std::unordered_set<value_ptr> liveuse;
+    // std::unordered_set<value_ptr> livein;
+    // std::unordered_set<value_ptr> liveout;
+    std::set<value_ptr> def;
+    std::set<value_ptr> liveuse;
+    std::set<value_ptr> livein;
+    std::set<value_ptr> liveout;
 
     void UpdateLU(value_ptr v);
     void UpdateDEF(value_ptr v);
     void ComputeDefAndLiveUse();
+    void AnalyzeLiveness();
 
     void Dump(std::ostream &os);
 };
