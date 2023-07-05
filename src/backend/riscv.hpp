@@ -173,6 +173,14 @@ class RiscvProgram {
     void spillReg(int i, LiveSet &live);
     void SpillDirtyRegs(LiveSet &live);
 
+    void AddAlloc(value_ptr v);
+    void AddLoad(value_ptr v);
+    void AddStore(value_ptr v);
+    void AddBinary(value_ptr v);
+    void AddBranch(value_ptr v);
+    void AddJump(value_ptr v);
+    void AddRet(value_ptr v);
+
     void AddData(RiscvData *v) {
         data_segment.push_back(v);
     }

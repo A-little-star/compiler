@@ -382,23 +382,23 @@ void GenCode(const value_ptr val, std::ostream &os) {
             }
             // 生成操作符的字符串
             switch (kind.data.binary.op) {
-                case NOT_EQ : op = "ne"; break;
-                case EQ : op = "eq"; break;
-                case GT : op = "gt"; break;
-                case LT : op = "lt"; break;
-                case GE : op = "ge"; break;
-                case LE : op = "le"; break;
-                case ADD : op = "add"; break;
-                case SUB : op = "sub"; break;
-                case MUL : op = "mul"; break;
-                case DIV : op = "div"; break;
-                case MOD : op = "mod"; break;
-                case AND : op = "and"; break;
-                case OR : op = "or"; break;
-                case XOR : op = "xor"; break;
-                case SHL : op = "shl"; break;
-                case SHR : op = "shr"; break;
-                case SAR : op = "sar"; break;
+                case binary_t::NOT_EQ : op = "ne"; break;
+                case binary_t::EQ : op = "eq"; break;
+                case binary_t::GT : op = "gt"; break;
+                case binary_t::LT : op = "lt"; break;
+                case binary_t::GE : op = "ge"; break;
+                case binary_t::LE : op = "le"; break;
+                case binary_t::ADD : op = "add"; break;
+                case binary_t::SUB : op = "sub"; break;
+                case binary_t::MUL : op = "mul"; break;
+                case binary_t::DIV : op = "div"; break;
+                case binary_t::MOD : op = "mod"; break;
+                case binary_t::AND : op = "and"; break;
+                case binary_t::OR : op = "or"; break;
+                case binary_t::XOR : op = "xor"; break;
+                case binary_t::SHL : op = "shl"; break;
+                case binary_t::SHR : op = "shr"; break;
+                case binary_t::SAR : op = "sar"; break;
             }
             os << "  %" << std::to_string(val_id) << " = " << op << " " << l_str << ", " << r_str << std::endl;
             val_map[val] = val_id;

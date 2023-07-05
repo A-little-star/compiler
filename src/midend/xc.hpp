@@ -4,6 +4,8 @@
 #include <vector>
 #include <unordered_set>
 #include <set>
+// #include "../backend/riscv.hpp"
+class RiscvProgram;
 typedef unsigned int u32;
 
 struct value;
@@ -115,9 +117,28 @@ enum op_t {
     SAR,
 };
 
-typedef struct {
+typedef struct binary_t {
+    enum op_t {
+        NOT_EQ,
+        EQ,
+        GT,
+        LT,
+        GE,
+        LE,
+        ADD,
+        SUB,
+        MUL,
+        DIV,
+        MOD,
+        AND,
+        OR,
+        XOR,
+        SHL,
+        SHR,
+        SAR,
+    } op;
     // operator.
-    op_t op;
+    // op_t op;
     // Left-hand side value.
     value_ptr lhs;
     // Right-hand side value.
@@ -251,6 +272,8 @@ struct value {
     int offset;
     // 活跃变量集
     std::set<value_ptr> liveout;
+
+    void Dump(std::ostream &os);
 };
 
 typedef value *value_ptr;
@@ -316,7 +339,7 @@ void FreeMem(prog_ptr prog);
 
 int CalStackMem(const func_ptr func);
 
-void ir2riscv(const prog_ptr prog, std::ostream &os);
+void ir2riscv(const prog_ptr prog, RiscvProgram *rp);
 
 void DumpFlowGraph(const prog_ptr prog, std::ostream &os);
 

@@ -1492,8 +1492,8 @@ class GenIR : public Visitor {
 
             val->kind.tag = IR_BINARY;
             // 设置二元运算指令的opcode
-            if (UnaryExp->unaryop == "-") val->kind.data.binary.op = SUB;
-            else if (UnaryExp->unaryop == "!") val->kind.data.binary.op = EQ;
+            if (UnaryExp->unaryop == "-") val->kind.data.binary.op = binary_t::SUB;
+            else if (UnaryExp->unaryop == "!") val->kind.data.binary.op = binary_t::EQ;
             // 设置二元运算指令的第一个操作数
             val->kind.data.binary.lhs = new value;
             val->kind.data.binary.lhs->kind.tag = IR_INTEGER;
@@ -1549,9 +1549,9 @@ class GenIR : public Visitor {
 
             val->kind.tag = IR_BINARY;
             
-            if (MulExp->mulop == "*") val->kind.data.binary.op = MUL;
-            else if (MulExp->mulop == "/") val->kind.data.binary.op = DIV;
-            else if (MulExp->mulop == "%") val->kind.data.binary.op = MOD;
+            if (MulExp->mulop == "*") val->kind.data.binary.op = binary_t::MUL;
+            else if (MulExp->mulop == "/") val->kind.data.binary.op = binary_t::DIV;
+            else if (MulExp->mulop == "%") val->kind.data.binary.op = binary_t::MOD;
             else {
                 printf("There is a exception in visit of MulExp!\n");
                 assert(false);
@@ -1575,8 +1575,8 @@ class GenIR : public Visitor {
 
             val->kind.tag = IR_BINARY;
 
-            if (AddExp->addop == "+") val->kind.data.binary.op = ADD;
-            else if (AddExp->addop == "-") val->kind.data.binary.op = SUB;
+            if (AddExp->addop == "+") val->kind.data.binary.op = binary_t::ADD;
+            else if (AddExp->addop == "-") val->kind.data.binary.op = binary_t::SUB;
             else {
                 printf("There is a exception in visit of AddExp!\n");
                 assert(false);
@@ -1600,10 +1600,10 @@ class GenIR : public Visitor {
 
             val->kind.tag = IR_BINARY;
 
-            if (RelExp->relop == "<") val->kind.data.binary.op = LT;
-            else if (RelExp->relop == ">") val->kind.data.binary.op = GT;
-            else if (RelExp->relop == "<=") val->kind.data.binary.op = LE;
-            else if (RelExp->relop == ">=") val->kind.data.binary.op = GE;
+            if (RelExp->relop == "<") val->kind.data.binary.op = binary_t::LT;
+            else if (RelExp->relop == ">") val->kind.data.binary.op = binary_t::GT;
+            else if (RelExp->relop == "<=") val->kind.data.binary.op = binary_t::LE;
+            else if (RelExp->relop == ">=") val->kind.data.binary.op = binary_t::GE;
             else {
                 printf("There is a exception in visit of RelExp!\n");
                 assert(false);
@@ -1627,8 +1627,8 @@ class GenIR : public Visitor {
 
             val->kind.tag = IR_BINARY;
 
-            if (EqExp->eqop == "==") val->kind.data.binary.op = EQ;
-            else if (EqExp->eqop == "!=") val->kind.data.binary.op = NOT_EQ;
+            if (EqExp->eqop == "==") val->kind.data.binary.op = binary_t::EQ;
+            else if (EqExp->eqop == "!=") val->kind.data.binary.op = binary_t::NOT_EQ;
             else {
                 printf("There is a exception in visit of RelExp!\n");
                 assert(false);
@@ -1690,7 +1690,7 @@ class GenIR : public Visitor {
             value_ptr r_val_l = tr->NewValue();
             r_val_l->ty.tag = KOOPA_TYPE_INT32;
             r_val_l->kind.tag = IR_BINARY;
-            r_val_l->kind.data.binary.op = NOT_EQ;
+            r_val_l->kind.data.binary.op = binary_t::NOT_EQ;
             r_val_l->kind.data.binary.lhs = new value;
             r_val_l->kind.data.binary.lhs->kind.tag = IR_INTEGER;
             r_val_l->kind.data.binary.lhs->kind.data.integer.value = 0;
@@ -1773,7 +1773,7 @@ class GenIR : public Visitor {
             value_ptr l_val_l = tr->NewValue();
             l_val_l->ty.tag = KOOPA_TYPE_INT32;
             l_val_l->kind.tag = IR_BINARY;
-            l_val_l->kind.data.binary.op = NOT_EQ;
+            l_val_l->kind.data.binary.op = binary_t::NOT_EQ;
             l_val_l->kind.data.binary.lhs = new value;
             l_val_l->kind.data.binary.lhs->kind.tag = IR_INTEGER;
             l_val_l->kind.data.binary.lhs->kind.data.integer.value = 0;
@@ -1794,7 +1794,7 @@ class GenIR : public Visitor {
             value_ptr r_val_l = tr->NewValue();
             r_val_l->ty.tag = KOOPA_TYPE_INT32;
             r_val_l->kind.tag = IR_BINARY;
-            r_val_l->kind.data.binary.op = NOT_EQ;
+            r_val_l->kind.data.binary.op = binary_t::NOT_EQ;
             r_val_l->kind.data.binary.lhs = new value;
             r_val_l->kind.data.binary.lhs->kind.tag = IR_INTEGER;
             r_val_l->kind.data.binary.lhs->kind.data.integer.value = 0;

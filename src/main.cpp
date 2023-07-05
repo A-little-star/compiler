@@ -22,7 +22,7 @@ int val_id = 0;
 int max_id = 0;
 
 // prog_ptr prog = NULL;
-RiscvProgram *riscvprogram;
+// RiscvProgram *riscvprogram;
 
 int main(int argc, const char *argv[]) {
   // 解析命令行参数. 测试脚本/评测平台要求你的编译器能接收如下参数:
@@ -89,29 +89,36 @@ int main(int argc, const char *argv[]) {
     auto v = new GenIR();
     prog_ptr prog = (prog_ptr)ast->accept(v);
 
-    // 遍历数据结构形式的IR，生成RISC-V汇编
+    printf("Koopa IR is built successfully!\n");
+
+    prog->AnalyzeLiveness();
+
+    printf("Liveness is built!\n");
+
+    // 遍历数据结构形式的IR，生成RISC-V汇编（数据结构形式）
+    RiscvProgram *rp = new RiscvProgram;
+    ir2riscv(prog, rp);
+
+    // 将数据结构形式的汇编输出到output文件中显示
     ofstream file_o(output);
     if (file_o.is_open()) {
-      ir2riscv(prog, std::cout);
-      
-      riscvprogram->Dump(file_o);
+      rp->Dump(file_o);
       file_o.close();
     }
     else 
       cout << "main.cpp: Unable to create the output file." << endl;
 
     // 将output文件中的内容打印出来显示
-    // riscvprogram->Dump(std::cout);
-    // ifstream file_i(output);
-    // if (file_i.is_open()) {
-    //   string line;
-    //   while (getline(file_i, line)) {
-    //     cout << line << endl;
-    //   }
-    //   file_i.close();
-    // }
-    // else
-    //   cout << "main.cpp: Unable to create the input file." << endl;
+    ifstream file_i(output);
+    if (file_i.is_open()) {
+      string line;
+      while (getline(file_i, line)) {
+        cout << line << endl;
+      }
+      file_i.close();
+    }
+    else
+      cout << "main.cpp: Unable to create the input file." << endl;
     
     delete v;
     v = NULL;

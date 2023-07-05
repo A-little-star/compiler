@@ -52,6 +52,14 @@ void basic_block::Dump(std::ostream &os) {
     os << std::endl;
 }
 
+void value::Dump(std::ostream &os) {
+    for (const auto &element : liveout) {
+        if (element->name != "") os << element->name << "  ";
+        else os << "%" << val_map[element] << "  ";
+    }
+    os << std::endl;
+}
+
 void DumpFlowGraph(const prog_ptr prog, std::ostream &os) {
     for (size_t i = 0; i < prog->funcs->len; i ++ ) {
         func_ptr func = (func_ptr)prog->funcs->buffer[i];
@@ -59,6 +67,11 @@ void DumpFlowGraph(const prog_ptr prog, std::ostream &os) {
         for (size_t j = 0; j < func->bbs->len; j ++ ) {
             basic_block_ptr bb = (basic_block_ptr)func->bbs->buffer[j];
             bb->Dump(os);
+            for (size_t k = 0; k < bb->insts->len; k ++ ) {
+                value_ptr val = (value_ptr)bb->insts->buffer[k];
+                os << "      ";
+                val->Dump(os);
+            }
         }
     }
 }

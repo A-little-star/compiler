@@ -131,12 +131,12 @@ void basic_block::AnalyzeLiveness(void) {
 
     value_ptr inst = (value_ptr)insts->buffer[insts->len - 1];
     inst->liveout = liveout;
-    if (inst->kind.tag == IR_BRANCH){
-        inst->liveout.insert(inst->kind.data.branch.cond);
-    }
-    if (inst->kind.tag == IR_RETURN && inst->kind.data.ret.value != NULL) {
-        inst->liveout.insert(inst->kind.data.ret.value);
-    }
+    // if (inst->kind.tag == IR_BRANCH){
+    //     inst->liveout.insert(inst->kind.data.branch.cond);
+    // }
+    // if (inst->kind.tag == IR_RETURN && inst->kind.data.ret.value != NULL) {
+    //     inst->liveout.insert(inst->kind.data.ret.value);
+    // }
 
     for (int i = insts->len - 2; i >= 0; i -- ) {
         value_ptr inst = (value_ptr)insts->buffer[i];
@@ -202,7 +202,7 @@ void program::AnalyzeLiveness(void) {
         func_ptr func = (func_ptr)funcs->buffer[i];
         func->AnalyzeLiveness();
         for (size_t j = 0; j < func->bbs->len; j ++ ) {
-            basic_block_ptr bb = (basic_block_ptr)func->bbs->buffer[i];
+            basic_block_ptr bb = (basic_block_ptr)func->bbs->buffer[j];
             bb->AnalyzeLiveness();
         }
     }

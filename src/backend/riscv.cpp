@@ -1,6 +1,80 @@
 #include "riscv.hpp"
 #include <assert.h>
 
+void RiscvProgram::AddAlloc(value_ptr v) {
+    GetRegForWrite(v, 0, 0, v->liveout);
+}
+
+void RiscvProgram::AddLoad(value_ptr v) {
+    int r1 = GetRegForRead(v->kind.data.load.src, 0, v->liveout);
+    int r0 = GetRegForWrite(v, r1, 0, v->liveout);
+    AddInstr(RiscvInstr::MV, reg[r0], reg[r1], NULL, 0, "");
+}
+
+void RiscvProgram::AddStore(value_ptr v) {
+    int r1 = GetRegForRead(v->kind.data.store.value, 0, v->liveout);
+    int r0 = GetRegForWrite(v->kind.data.store.dest, r1, 0, v->liveout);
+    AddInstr(RiscvInstr::MV, reg[r0], reg[r1], NULL, 0, "");
+}
+
+void RiscvProgram::AddBinary(value_ptr v) {
+    int r1 = GetRegForRead(v->kind.data.binary.lhs, 0, v->liveout);
+    int r2 = GetRegForRead(v->kind.data.binary.rhs, r1, v->liveout);
+    int r0 = GetRegForWrite(v, r1, r2, v->liveout);
+    RiscvInstr::OpCode op;
+    switch (v->kind.data.binary.op) {
+        case binary_t::NOT_EQ: op = RiscvInstr::XOR; break;
+        case binary_t::EQ: op = RiscvInstr::XOR; break;
+        case binary_t::GT: op = RiscvInstr::SGT; break;
+        case binary_t::LT: op = RiscvInstr::SLT; break;
+        case binary_t::GE: op = RiscvInstr::SLT; break;
+        case binary_t::LE: op = RiscvInstr::SGT; break;
+        case binary_t::ADD: op = RiscvInstr::ADD; break;
+        case binary_t::SUB: op = RiscvInstr::SUB; break;
+        case binary_t::MUL: op = RiscvInstr::MUL; break;
+        case binary_t::DIV: op = RiscvInstr::DIV; break;
+        case binary_t::MOD: op = RiscvInstr::REM; break;
+        case binary_t::AND: op = RiscvInstr::AND; break;
+        case binary_t::OR: op = RiscvInstr::OR; break;
+        case binary_t::XOR: op = RiscvInstr::XOR; break;
+        default: assert(false);
+    }
+    AddInstr(op, reg[r0], reg[r1], reg[r2], 0, "");
+    switch (v->kind.data.binary.op) {
+        case binary_t::NOT_EQ:
+            op = RiscvInstr::SNEZ;
+            AddInstr(op, reg[r0], reg[r0], NULL, 0, "");
+            break;
+        case binary_t::EQ:
+        case binary_t::GE:
+        case binary_t::LE:
+            op = RiscvInstr::SEQZ;
+            AddInstr(op, reg[r0], reg[r1], NULL, 0, "");
+            break;
+        default: break;
+    }
+}
+
+void RiscvProgram::AddBranch(value_ptr v) {
+    int r0 = GetRegForRead(v->kind.data.branch.cond, 0, v->liveout);
+    AddInstr(RiscvInstr::BNEZ, reg[r0], NULL, NULL, 0, v->kind.data.branch.true_bb->name);
+    AddInstr(RiscvInstr::J, NULL, NULL, NULL, 0, v->kind.data.branch.false_bb->name);
+}
+
+void RiscvProgram::AddJump(value_ptr v) {
+    AddInstr(RiscvInstr::J, NULL, NULL, NULL, 0, v->kind.data.jump.target->name);
+}
+
+void RiscvProgram::AddRet(value_ptr v) {
+    if (v->kind.data.ret.value == NULL) {
+        AddInstr(RiscvInstr::RET, NULL, NULL, NULL, 0, "");
+        return;
+    }
+    int r1 = GetRegForRead(v->kind.data.ret.value, 0, v->liveout);
+    AddInstr(RiscvInstr::MV, reg[RiscvReg::a0], reg[r1], NULL, 0, "");
+    AddInstr(RiscvInstr::RET, NULL, NULL, NULL, 0, "");
+}
+
 RiscvReg::RiscvReg(const char *reg_name, bool is_general) {
     name = reg_name;
     dirty = false;
@@ -110,8 +184,8 @@ void RiscvInstr::Dump(std::ostream &os) {
         case RiscvInstr::NOT: assert(false); break;
         case RiscvInstr::SEQZ: os << "  seqz " << r0->name << ", " << r1->name << std::endl; break;
         case RiscvInstr::SNEZ: os << "  snez " << r0->name << ", " << r1->name << std::endl; break;
-        case RiscvInstr::EQU: assert(false); break;
-        case RiscvInstr::NEQ: assert(false); break;
+        case RiscvInstr::EQU: assert(false);
+        case RiscvInstr::NEQ: assert(false); break; 
         case RiscvInstr::LEQ: assert(false); break;
         case RiscvInstr::LES: assert(false); break;
         case RiscvInstr::GEQ: assert(false); break;
@@ -139,10 +213,14 @@ int RiscvProgram::GetRegForRead(value_ptr v, int avoid1, LiveSet &live) {
             i = selectRegToSpill(avoid1, RiscvReg::zero, live);
             spillReg(i, live);
         }
-
-        reg[i]->var = v;
-
-        AddInstr(RiscvInstr::LW, reg[i], reg[RiscvReg::sp], NULL, v->offset, "");
+        if (v->kind.tag != IR_INTEGER) {
+            reg[i]->var = v;
+            AddInstr(RiscvInstr::LW, reg[i], reg[RiscvReg::sp], NULL, v->offset, "");
+        }
+        else {
+            reg[i]->var = NULL;
+            AddInstr(RiscvInstr::LI, reg[i], NULL, NULL, v->kind.data.integer.value, "");
+        }
 
         reg[i]->dirty = false;
     }
