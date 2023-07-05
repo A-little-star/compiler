@@ -63,7 +63,7 @@ void basic_block::ComputeDefAndLiveUse(void) {
                 UpdateDEF(var);
                 break;
             case IR_RETURN:
-                if (var->kind.data.ret.value->kind.tag != IR_INTEGER)
+                if (var->kind.data.ret.value != NULL && var->kind.data.ret.value->kind.tag != IR_INTEGER)
                     UpdateLU(var->kind.data.ret.value);
                 break;
             case IR_JUMP:
@@ -193,7 +193,7 @@ void basic_block::AnalyzeLiveness(void) {
                 }
                 break;
             case IR_RETURN:
-                if (inst_next->kind.data.ret.value->kind.tag != IR_INTEGER)
+                if (inst_next->kind.data.ret.value != NULL && inst_next->kind.data.ret.value->kind.tag != IR_INTEGER)
                     inst->liveout.insert(inst_next->kind.data.ret.value);
                 break;
             case IR_JUMP:

@@ -341,6 +341,4 @@ int CalStackMem(const func_ptr func);
 
 void ir2riscv(const prog_ptr prog, RiscvProgram *rp);
 
-void DumpFlowGraph(const prog_ptr prog, std::ostream &os);
-
 #endif

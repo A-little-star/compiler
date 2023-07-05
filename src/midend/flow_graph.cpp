@@ -1,4 +1,6 @@
-#include "xc.hpp"
+// #include "xc.hpp"
+#include <assert.h>
+#include "flow_graph.hpp"
 #include <unordered_map>
 
 extern std::unordered_map<value_ptr, int> val_map;
@@ -58,6 +60,29 @@ void value::Dump(std::ostream &os) {
         else os << "%" << val_map[element] << "  ";
     }
     os << std::endl;
+}
+
+void GenFlowGraph(prog_ptr prog) {
+    for (size_t i = 0; i < prog->funcs->len; i ++ ) {
+        func_ptr func = (func_ptr)prog->funcs->buffer[i];
+        for (size_t j = 0; j < func->bbs->len; j ++ ) {
+            basic_block_ptr bb = (basic_block_ptr)func->bbs->buffer[j];
+            if (bb->insts->len == 0) continue;
+            value_ptr end_val = (value_ptr)bb->insts->buffer[bb->insts->len - 1];
+            switch (end_val->kind.tag) {
+                case IR_JUMP:
+                    bb->next.push_back(end_val->kind.data.jump.target);
+                    break;
+                case IR_BRANCH:
+                    bb->next.push_back(end_val->kind.data.branch.true_bb);
+                    bb->next.push_back(end_val->kind.data.branch.false_bb);
+                    break;
+                case IR_RETURN:
+                    break;
+                default: assert(false);
+            }
+        }
+    }
 }
 
 void DumpFlowGraph(const prog_ptr prog, std::ostream &os) {

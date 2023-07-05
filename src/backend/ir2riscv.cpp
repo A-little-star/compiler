@@ -5,8 +5,6 @@
 #include "../midend/xc.hpp"
 #include "riscv.hpp"
 
-// extern RiscvProgram *riscvprogram;
-
 extern std::unordered_map<value_ptr, int> off_map;
 extern std::unordered_map<value_ptr, int> arg_off_map;
 extern std::unordered_map<func_ptr, int> has_call;
@@ -14,8 +12,7 @@ static bool func_cur_has_call = false;
 std::string func_name;
 static int offset = 0;
 
-static int reg_id = 0;
-std::unordered_map<value_ptr, int> reg_map;
+// std::unordered_map<value_ptr, int> reg_map;
 
 void GenRisc(const prog_ptr prog, RiscvProgram *rp);
 void GenRisc(const slice_ptr slice, RiscvProgram *rp);

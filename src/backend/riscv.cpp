@@ -18,9 +18,12 @@ void RiscvProgram::AddStore(value_ptr v) {
 }
 
 void RiscvProgram::AddBinary(value_ptr v) {
-    int r1 = GetRegForRead(v->kind.data.binary.lhs, 0, v->liveout);
-    int r2 = GetRegForRead(v->kind.data.binary.rhs, r1, v->liveout);
-    int r0 = GetRegForWrite(v, r1, r2, v->liveout);
+    LiveSet liveness = v->liveout;
+    liveness.insert(v->kind.data.binary.lhs);
+    liveness.insert(v->kind.data.binary.rhs);
+    int r1 = GetRegForRead(v->kind.data.binary.lhs, 0, liveness);
+    int r2 = GetRegForRead(v->kind.data.binary.rhs, r1, liveness);
+    int r0 = GetRegForWrite(v, r1, r2, liveness);
     RiscvInstr::OpCode op;
     switch (v->kind.data.binary.op) {
         case binary_t::NOT_EQ: op = RiscvInstr::XOR; break;
@@ -49,7 +52,7 @@ void RiscvProgram::AddBinary(value_ptr v) {
         case binary_t::GE:
         case binary_t::LE:
             op = RiscvInstr::SEQZ;
-            AddInstr(op, reg[r0], reg[r1], NULL, 0, "");
+            AddInstr(op, reg[r0], reg[r0], NULL, 0, "");
             break;
         default: break;
     }
@@ -57,12 +60,12 @@ void RiscvProgram::AddBinary(value_ptr v) {
 
 void RiscvProgram::AddBranch(value_ptr v) {
     int r0 = GetRegForRead(v->kind.data.branch.cond, 0, v->liveout);
-    AddInstr(RiscvInstr::BNEZ, reg[r0], NULL, NULL, 0, v->kind.data.branch.true_bb->name);
-    AddInstr(RiscvInstr::J, NULL, NULL, NULL, 0, v->kind.data.branch.false_bb->name);
+    AddInstr(RiscvInstr::BNEZ, reg[r0], NULL, NULL, 0, v->kind.data.branch.true_bb->name.substr(1));
+    AddInstr(RiscvInstr::J, NULL, NULL, NULL, 0, v->kind.data.branch.false_bb->name.substr(1));
 }
 
 void RiscvProgram::AddJump(value_ptr v) {
-    AddInstr(RiscvInstr::J, NULL, NULL, NULL, 0, v->kind.data.jump.target->name);
+    AddInstr(RiscvInstr::J, NULL, NULL, NULL, 0, v->kind.data.jump.target->name.substr(1));
 }
 
 void RiscvProgram::AddRet(value_ptr v) {
@@ -218,7 +221,7 @@ int RiscvProgram::GetRegForRead(value_ptr v, int avoid1, LiveSet &live) {
             AddInstr(RiscvInstr::LW, reg[i], reg[RiscvReg::sp], NULL, v->offset, "");
         }
         else {
-            reg[i]->var = NULL;
+            reg[i]->var = v;
             AddInstr(RiscvInstr::LI, reg[i], NULL, NULL, v->kind.data.integer.value, "");
         }
 

@@ -43,6 +43,7 @@ int CalStackMem(const func_ptr func) {
                 case IR_CALL: {
                     if (inst->ty.tag == KOOPA_TYPE_INT32) {
                         off_map[inst] = s + a - 4 * num - 4;
+                        inst->offset = off_map[inst];
                         num ++;
                     }
                     for (size_t i = 8; i < inst->kind.data.call.args->len; i ++ ) {
@@ -55,6 +56,7 @@ int CalStackMem(const func_ptr func) {
                 case IR_BINARY:
                 case IR_LOAD: {
                     off_map[inst] = s + a - 4 * num - 4;
+                    inst->offset = off_map[inst];
                     num ++;
                     break;
                 }

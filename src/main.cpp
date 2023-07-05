@@ -8,6 +8,7 @@
 #include "./midend/xc.hpp"
 #include "./midend/ast2ir.hpp"
 #include "./backend/riscv.hpp"
+#include "./midend/flow_graph.hpp"
 
 using namespace std;
 
@@ -21,8 +22,6 @@ extern int yyparse(unique_ptr<BaseAST> &ast);
 int val_id = 0;
 int max_id = 0;
 
-// prog_ptr prog = NULL;
-// RiscvProgram *riscvprogram;
 
 int main(int argc, const char *argv[]) {
   // 解析命令行参数. 测试脚本/评测平台要求你的编译器能接收如下参数:
@@ -49,11 +48,12 @@ int main(int argc, const char *argv[]) {
     // 构造一个生成IR的Visitor类，调用accept()方法生成数据结构形式的koopa IR
     auto v = new GenIR();
     prog_ptr prog = (prog_ptr)ast->accept(v);
-
     printf("Koopa IR is built successfully!\n");
 
-    prog->AnalyzeLiveness();
+    GenFlowGraph(prog);
+    printf("CFG is built successfully!\n");
 
+    prog->AnalyzeLiveness();
     printf("Liveness is built!\n");
 
     // 遍历数据结构形式的koopa IR，转化成文本形式输出到output文件中
@@ -87,12 +87,14 @@ int main(int argc, const char *argv[]) {
   else if (strcmp(mode, "-riscv") == 0) {
     // 构造一个生成IR的Visitor类，调用accept()方法生成数据结构形式的koopa IR
     auto v = new GenIR();
-    prog_ptr prog = (prog_ptr)ast->accept(v);
 
+    prog_ptr prog = (prog_ptr)ast->accept(v);
     printf("Koopa IR is built successfully!\n");
 
-    prog->AnalyzeLiveness();
+    GenFlowGraph(prog);
+    printf("CFG is built successfully!\n");
 
+    prog->AnalyzeLiveness();
     printf("Liveness is built!\n");
 
     // 遍历数据结构形式的IR，生成RISC-V汇编（数据结构形式）
