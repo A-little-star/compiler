@@ -804,7 +804,7 @@ class GenIR : public Visitor {
             basic_block_ptr bb = tr->NewBasicBlock();
             tr->AddBasicBlock(bb);
 
-            bb_f->next.push_back(bb);
+            // bb_f->next.push_back(bb);
 
             tr->bb_cur = bb;
             val->kind.data.branch.true_bb = bb;
@@ -816,12 +816,11 @@ class GenIR : public Visitor {
             val_j1->kind.tag = IR_JUMP;
             tr->AddValue(val_j1);
 
+            basic_block_ptr _body = tr->bb_cur;
+
             // 创建一个新的基本块，作为分支指令创建的基本块的出口
             basic_block_ptr bb_end = tr->NewBasicBlock();
             tr->AddBasicBlock(bb_end);
-
-            bb_f->next.push_back(bb_end);
-            bb->next.push_back(bb_end);
 
             tr->bb_cur = bb_end;
             bb_end->name = "%b" + std::to_string(bb_id);
@@ -831,6 +830,10 @@ class GenIR : public Visitor {
 
             // 在创建的基本块的末尾加上跳转指令
             val_j1->kind.data.jump.target = bb_end;
+
+            bb_f->next.push_back(_body);
+            bb_f->next.push_back(bb_end);
+            _body->next.push_back(bb_end);
         }
         else if (OpenStmt->type == OpenStmtAST::IF_ELSE) {
             basic_block_ptr bb_f = tr->bb_cur;
@@ -838,7 +841,7 @@ class GenIR : public Visitor {
             basic_block_ptr bb_true = tr->NewBasicBlock();
             tr->AddBasicBlock(bb_true);
 
-            bb_f->next.push_back(bb_true);
+            // bb_f->next.push_back(bb_true);
 
             tr->bb_cur = bb_true;
             val->kind.data.branch.true_bb = bb_true;
@@ -850,11 +853,13 @@ class GenIR : public Visitor {
             val_j1->kind.tag = IR_JUMP;
             tr->AddValue(val_j1);
 
+            basic_block_ptr _body1 = tr->bb_cur;
+
             // 创建一个基本块，作为条件为false时跳转的基本块
             basic_block_ptr bb_false = tr->NewBasicBlock();
             tr->AddBasicBlock(bb_false);
 
-            bb_f->next.push_back(bb_false);
+            // bb_f->next.push_back(bb_false);
 
             tr->bb_cur = bb_false;
             val->kind.data.branch.false_bb = bb_false;
@@ -866,13 +871,15 @@ class GenIR : public Visitor {
             val_j2->kind.tag = IR_JUMP;
             tr->AddValue(val_j2);
 
+            basic_block_ptr _body2 = tr->bb_cur;
+
             // 创建一个新的基本块，作为分支指令创建的基本块的出口
             
             basic_block_ptr bb_end = tr->NewBasicBlock();
             tr->AddBasicBlock(bb_end);
 
-            bb_true->next.push_back(bb_end);
-            bb_false->next.push_back(bb_end);
+            // bb_true->next.push_back(bb_end);
+            // bb_false->next.push_back(bb_end);
 
             tr->bb_cur = bb_end;
             bb_end->name = "%b" + std::to_string(bb_id);
@@ -884,6 +891,11 @@ class GenIR : public Visitor {
 
             
             val_j2->kind.data.jump.target = bb_end;
+
+            bb_f->next.push_back(_body1);
+            bb_f->next.push_back(_body2);
+            _body1->next.push_back(bb_end);
+            _body2->next.push_back(bb_end);
         }
         return NULL;
     }
@@ -958,6 +970,7 @@ class GenIR : public Visitor {
             NonIfStmt->block->accept(this);
         }
         else if (NonIfStmt->type == NonIfStmtAST::WHILE) {
+            basic_block_ptr bb_f = tr->bb_cur;
             // 创建一个新的循环结点
             LoopTreeNode *ltn = new LoopTreeNode;
             ltn->father_loop = lt.current;
@@ -973,18 +986,18 @@ class GenIR : public Visitor {
             while_entry->name = "%b" + std::to_string(bb_id);
             bb_id ++;
             tr->AddBasicBlock(while_entry);
-            tr->bb_cur->next.push_back(while_entry);
+            // tr->bb_cur->next.push_back(while_entry);
             basic_block_ptr while_body = tr->NewBasicBlock();
             while_body->name = "%b" + std::to_string(bb_id);
             bb_id ++;
             tr->AddBasicBlock(while_body);
-            while_entry->next.push_back(while_body);
-            while_body->next.push_back(while_entry);
+            // while_entry->next.push_back(while_body);
+            // while_body->next.push_back(while_entry);
             basic_block_ptr end = tr->NewBasicBlock();
             end->name = "%b" + std::to_string(bb_id);
             bb_id ++;
             tr->AddBasicBlock(end);
-            while_entry->next.push_back(end);
+            // while_entry->next.push_back(end);
 
             val_j1->kind.data.jump.target = while_entry;
 
@@ -1001,6 +1014,8 @@ class GenIR : public Visitor {
             val_br->kind.data.branch.cond = (value_ptr)NonIfStmt->exp->accept(this);
             tr->AddValue(val_br);
 
+            basic_block_ptr _entry = tr->bb_cur;
+
             // 处理循环体部分
             tr->bb_cur = while_body;
             val_br->kind.data.branch.true_bb = while_body;
@@ -1012,15 +1027,22 @@ class GenIR : public Visitor {
             val_j2->kind.tag = IR_JUMP;
             val_j2->kind.data.jump.target = while_entry;
 
+            basic_block_ptr _body = tr->bb_cur;
+
             tr->bb_cur = end;
             val_br->kind.data.branch.false_bb = end;
 
+            bb_f->next.push_back(_entry);
+            _entry->next.push_back(_body);
+            _entry->next.push_back(end);
+            _body->next.push_back(_entry);
             // 该循环已经处理完毕，当前循环退出到父循环
             lt.current = ltn->father_loop;
             delete ltn;
             ltn = NULL;
         }
         else if (NonIfStmt->type == NonIfStmtAST::FOR) {
+            basic_block_ptr bb_f = tr->bb_cur;
             // 创建一个新的循环结点
             LoopTreeNode *ltn = new LoopTreeNode;
             ltn->father_loop = lt.current;
@@ -1050,18 +1072,18 @@ class GenIR : public Visitor {
             while_entry->name = "%b" + std::to_string(bb_id);
             bb_id ++;
             tr->AddBasicBlock(while_entry);
-            tr->bb_cur->next.push_back(while_entry);
+            // tr->bb_cur->next.push_back(while_entry);
             basic_block_ptr while_body = tr->NewBasicBlock();
             while_body->name = "%b" + std::to_string(bb_id);
             bb_id ++;
             tr->AddBasicBlock(while_body);
-            while_entry->next.push_back(while_body);
-            while_body->next.push_back(while_entry);
+            // while_entry->next.push_back(while_body);
+            // while_body->next.push_back(while_entry);
             basic_block_ptr end = tr->NewBasicBlock();
             end->name = "%b" + std::to_string(bb_id);
             bb_id ++;
             tr->AddBasicBlock(end);
-            while_entry->next.push_back(end);
+            // while_entry->next.push_back(end);
 
             val_j1->kind.data.jump.target = while_entry;
 
@@ -1077,6 +1099,8 @@ class GenIR : public Visitor {
             val_br->kind.tag = IR_BRANCH;
             val_br->kind.data.branch.cond = (value_ptr)NonIfStmt->exp->accept(this);
             tr->AddValue(val_br);
+
+            basic_block_ptr _entry = tr->bb_cur;
             
             // 处理循环体部分
             tr->bb_cur = while_body;
@@ -1090,8 +1114,15 @@ class GenIR : public Visitor {
             val_j2->kind.tag = IR_JUMP;
             val_j2->kind.data.jump.target = while_entry;
 
+            basic_block_ptr _body = tr->bb_cur;
+
             tr->bb_cur = end;
             val_br->kind.data.branch.false_bb = end;
+
+            bb_f->next.push_back(_entry);
+            _entry->next.push_back(_body);
+            _entry->next.push_back(end);
+            _body->next.push_back(_entry);
 
             bt.current = btn->father_block;
             btn->symtable.clear();

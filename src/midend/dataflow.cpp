@@ -79,7 +79,7 @@ void function::AnalyzeLiveness(void) {
     basic_block_ptr b = NULL, b1 = NULL, b2 = NULL;
     std::set<value_ptr> newin;
 
-    for (size_t i = 0; i < bbs->len; i ++ ) {
+    for (int i = 0; i < bbs->len; i ++ ) {
         basic_block_ptr bb = (basic_block_ptr)bbs->buffer[i];
         bb->ComputeDefAndLiveUse();
     }
@@ -90,16 +90,19 @@ void function::AnalyzeLiveness(void) {
 
         for (int i = bbs->len - 1; i >= 0; i -- ) {
             b = (basic_block_ptr)bbs->buffer[i];
-            
+            assert(b != NULL);
             if (b->insts->len == 0) continue;
             value_ptr end = (value_ptr)b->insts->buffer[b->insts->len - 1];
+            assert(end != NULL);
             switch (end->kind.tag) {
                 case IR_JUMP:
+                    assert(b->next.size() == 1);
                     b1 = b->next[0];
                     b->liveout = b1->livein;
                     break;
 
                 case IR_BRANCH:
+                    assert(b->next.size() == 2);
                     b1 = b->next[0];
                     b2 = b->next[1];
                     b->liveout.clear();
@@ -107,6 +110,7 @@ void function::AnalyzeLiveness(void) {
                     break;
 
                 case IR_RETURN:
+                    assert(b->next.size() == 0);
                     break;
                 
                 default:
@@ -131,6 +135,8 @@ void basic_block::AnalyzeLiveness(void) {
 
     value_ptr inst = (value_ptr)insts->buffer[insts->len - 1];
     inst->liveout = liveout;
+    if (insts->len == 1) 
+        return;
     // if (inst->kind.tag == IR_BRANCH){
     //     inst->liveout.insert(inst->kind.data.branch.cond);
     // }
