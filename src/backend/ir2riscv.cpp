@@ -19,7 +19,7 @@ void GenRisc(const slice_ptr slice, RiscvProgram *rp);
 void GenRisc(const func_ptr func, RiscvProgram *rp);
 void GenRisc(const basic_block_ptr bb, RiscvProgram *rp);
 void GenRisc(const value_ptr val, RiscvProgram *rp);
-void GenRisc_Binary(const value_ptr val, RiscvProgram *rp);
+// void GenRisc_Binary(const value_ptr val, RiscvProgram *rp);
 
 void ir2riscv(const prog_ptr prog, RiscvProgram *rp) {
     GenRisc(prog, rp);
@@ -100,42 +100,41 @@ void GenRisc(const value_ptr val, RiscvProgram *rp) {
     const auto &kind = val->kind;
     switch (kind.tag) {
         case IR_ALLOC:
-        {
             rp->AddAlloc(val);
             break;
-        }
-        case IR_GLOBAL_ALLOC:
-        {
-            assert(false);
+        case IR_GLOBAL_ALLOC: {
+            RiscvGlobalValue *global_value = new RiscvGlobalValue;
+            global_value->name = val->name.substr(1);
+            RiscvValueInit *init = new RiscvValueInit;
+            int value = val->kind.data.global_alloc.init->kind.data.integer.value;
+            if (!value) {
+                init->type = RiscvValueInit::zero;
+                init->value = 4;
+            }
+            else {
+                init->type = RiscvValueInit::word;
+                init->value = value;
+            }
+            global_value->AddInit(init);
+            rp->AddGlobalValue(global_value);
             break;
         }
         case IR_LOAD:
-        {
             rp->AddLoad(val);
             break;
-        }
         case IR_STORE:
-        {
             rp->AddStore(val);
             break;
-        }
         case IR_BRANCH:
-        {
             rp->AddBranch(val);
             break;
-        }
         case IR_JUMP:
-        {
             rp->AddJump(val);
             break;
-        }
         case IR_CALL:
-        {
-            assert(false);
+            rp->AddCall(val);
             break;
-        }
         case IR_RETURN:
-        {
             if (func_cur_has_call)
                 rp->AddInstr(
                     RiscvInstr::LW,
@@ -156,12 +155,9 @@ void GenRisc(const value_ptr val, RiscvProgram *rp) {
                 );
             rp->AddRet(val);
             break;
-        }
         case IR_BINARY:
-        {
             rp->AddBinary(val);
             break;
-        }
         default: {
             printf("There is an invalid type in GenRisc of value_ptr!\n");
             assert(false);

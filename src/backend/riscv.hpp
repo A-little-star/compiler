@@ -180,6 +180,8 @@ class RiscvProgram {
     void AddBranch(value_ptr v);
     void AddJump(value_ptr v);
     void AddRet(value_ptr v);
+    void AddCall(value_ptr v);
+    void passParamReg(value_ptr v, int cnt, LiveSet &live);
 
     void AddData(RiscvData *v) {
         data_segment.push_back(v);

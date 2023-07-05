@@ -270,6 +270,8 @@ struct value {
     inst_kind kind;
     // 在栈中的偏移量
     int offset;
+    // 作为参数在栈中的偏移量
+    int arg_offset;
     // 活跃变量集
     std::set<value_ptr> liveout;
 

@@ -35,6 +35,10 @@ int CalStackMem(const func_ptr func) {
     }
 
     int num = 0;
+    for (size_t j = 8; j < func->params->len; j ++ ) {
+        value_ptr param = (value_ptr)func->params->buffer[j];
+        param->offset = s + r + a + (j - 8) * 4;
+    }
     for (size_t j = 0; j < func->bbs->len; j ++ ) {
         basic_block_ptr bb = (basic_block_ptr)func->bbs->buffer[j];
         for (size_t k = 0; k < bb->insts->len; k ++ ) {
