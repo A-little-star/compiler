@@ -53,6 +53,7 @@ int CalStackMem(const func_ptr func) {
                     for (size_t i = 8; i < inst->kind.data.call.args->len; i ++ ) {
                         value_ptr arg = (value_ptr)inst->kind.data.call.args->buffer[i];
                         arg_off_map[arg] = (i - 8) * 4;
+                        arg->arg_offset = arg_off_map[arg];
                     }
                     break;
                 }

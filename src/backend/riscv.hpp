@@ -170,6 +170,7 @@ class RiscvProgram {
     int GetRegForWrite(value_ptr v, int avoid1, int avoid2, LiveSet &live);
     int lookupReg(value_ptr v);
     int selectRegToSpill(int avoid1, int avoid2, LiveSet &live);
+    int selectRegToSpill_param(LiveSet &live);
     void spillReg(int i, LiveSet &live);
     void SpillDirtyRegs(LiveSet &live);
 

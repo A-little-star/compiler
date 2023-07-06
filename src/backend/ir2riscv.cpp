@@ -8,9 +8,9 @@
 extern std::unordered_map<value_ptr, int> off_map;
 extern std::unordered_map<value_ptr, int> arg_off_map;
 extern std::unordered_map<func_ptr, int> has_call;
-static bool func_cur_has_call = false;
+bool func_cur_has_call = false;
 std::string func_name;
-static int offset = 0;
+int offset = 0;
 
 // std::unordered_map<value_ptr, int> reg_map;
 
@@ -135,24 +135,6 @@ void GenRisc(const value_ptr val, RiscvProgram *rp) {
             rp->AddCall(val);
             break;
         case IR_RETURN:
-            if (func_cur_has_call)
-                rp->AddInstr(
-                    RiscvInstr::LW,
-                    rp->reg[RiscvReg::ra],
-                    rp->reg[RiscvReg::sp],
-                    NULL,
-                    offset - 4,
-                    ""
-                );
-            if (offset)
-                rp->AddInstr(
-                    RiscvInstr::ADDI,
-                    rp->reg[RiscvReg::sp],
-                    rp->reg[RiscvReg::sp],
-                    NULL,
-                    offset,
-                    ""
-                );
             rp->AddRet(val);
             break;
         case IR_BINARY:

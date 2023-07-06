@@ -2,26 +2,44 @@
 #include <assert.h>
 #include <unordered_map>
 
+extern int offset;
+extern bool func_cur_has_call;
+
 void RiscvProgram::AddAlloc(value_ptr v) {
     GetRegForWrite(v, 0, 0, v->liveout);
 }
 extern std::unordered_map<value_ptr, int> val_map;
 
 void RiscvProgram::AddLoad(value_ptr v) {
-    int r1 = GetRegForRead(v->kind.data.load.src, 0, v->liveout);
-    int r0 = GetRegForWrite(v, r1, 0, v->liveout);
-    if (r1 == RiscvReg::t1 && r0 == RiscvReg::t2) {
-        printf("gg\n");
-        assert(reg[r0]->var != NULL);
-        printf("%d %d\n", reg[r0]->var->kind.tag, reg[r1]->var->kind.tag);
+    if (v->kind.data.load.src->kind.tag == IR_GLOBAL_ALLOC) {
+        LiveSet liveness = v->liveout;
+        liveness.insert(v->kind.data.load.src);
+        spillReg(RiscvReg::t0, liveness);
+        AddInstr(RiscvInstr::LA, reg[RiscvReg::t0], NULL, NULL, 0, v->kind.data.load.src->name.substr(1));
+        int r0 = GetRegForWrite(v, RiscvReg::t0, 0, v->liveout);
+        AddInstr(RiscvInstr::LW, reg[r0], reg[RiscvReg::t0], NULL, 0, "");
     }
-    AddInstr(RiscvInstr::MV, reg[r0], reg[r1], NULL, 0, "");
+    else {
+        int r1 = GetRegForRead(v->kind.data.load.src, 0, v->liveout);
+        int r0 = GetRegForWrite(v, r1, 0, v->liveout);
+        AddInstr(RiscvInstr::MV, reg[r0], reg[r1], NULL, 0, "");
+    }
 }
 
 void RiscvProgram::AddStore(value_ptr v) {
-    int r1 = GetRegForRead(v->kind.data.store.value, 0, v->liveout);
-    int r0 = GetRegForWrite(v->kind.data.store.dest, r1, 0, v->liveout);
-    AddInstr(RiscvInstr::MV, reg[r0], reg[r1], NULL, 0, "");
+    if (v->kind.data.store.dest->kind.tag == IR_GLOBAL_ALLOC) {
+        LiveSet liveness = v->liveout;
+        liveness.insert(v->kind.data.store.dest);
+        spillReg(RiscvReg::t0, liveness);
+        AddInstr(RiscvInstr::LA, reg[RiscvReg::t0], NULL, NULL, 0, v->kind.data.store.dest->name.substr(1));
+        int r0 = GetRegForRead(v->kind.data.store.value, RiscvReg::t0, v->liveout);
+        AddInstr(RiscvInstr::SW, reg[r0], reg[RiscvReg::t0], NULL, 0, "");
+    }
+    else {
+        int r1 = GetRegForRead(v->kind.data.store.value, 0, v->liveout);
+        int r0 = GetRegForWrite(v->kind.data.store.dest, r1, 0, v->liveout);
+        AddInstr(RiscvInstr::MV, reg[r0], reg[r1], NULL, 0, "");
+    }
 }
 
 void RiscvProgram::AddBinary(value_ptr v) {
@@ -66,12 +84,17 @@ void RiscvProgram::AddBinary(value_ptr v) {
 }
 
 void RiscvProgram::AddBranch(value_ptr v) {
+    LiveSet liveness = v->liveout;
+    if (v->kind.data.branch.cond != NULL)
+        liveness.insert(v->kind.data.branch.cond);
+    SpillDirtyRegs(liveness);
     int r0 = GetRegForRead(v->kind.data.branch.cond, 0, v->liveout);
     AddInstr(RiscvInstr::BNEZ, reg[r0], NULL, NULL, 0, v->kind.data.branch.true_bb->name.substr(1));
     AddInstr(RiscvInstr::J, NULL, NULL, NULL, 0, v->kind.data.branch.false_bb->name.substr(1));
 }
 
 void RiscvProgram::AddJump(value_ptr v) {
+    SpillDirtyRegs(v->liveout);
     AddInstr(RiscvInstr::J, NULL, NULL, NULL, 0, v->kind.data.jump.target->name.substr(1));
 }
 
@@ -84,8 +107,9 @@ void RiscvProgram::AddCall(value_ptr v) {
     for (int i = 0; i < v->kind.data.call.args->len; i ++ )
         liveness.insert((value_ptr)v->kind.data.call.args->buffer[i]);
 
-    for (int i = 0; i < 7; i ++ )
-        spillReg(caller_saved_regs[i], liveness);
+    // for (int i = 0; i < 7; i ++ )
+    //     spillReg(caller_saved_regs[i], liveness);
+    SpillDirtyRegs(liveness);
 
     // a0~a8 寄存器应该被spill到栈上去，用来传递参数
     // for (int i = 0; i < 8; i ++ )
@@ -95,11 +119,6 @@ void RiscvProgram::AddCall(value_ptr v) {
     for (int i = 0; i < v->kind.data.call.args->len; i ++ ) {
         value_ptr arg = (value_ptr)v->kind.data.call.args->buffer[i];
         v->liveout.insert(arg);
-        if (arg->kind.tag == IR_LOAD) {
-            printf("this\n");
-            // int i = lookupReg(arg);
-            // assert(arg == reg[RiscvReg::t2]->var);
-        }
         passParamReg(arg, i, v->liveout);
     }
 
@@ -130,7 +149,12 @@ void RiscvProgram::passParamReg(value_ptr v, int cnt, LiveSet &live) {
     else {
         int i = lookupReg(v);
         if (i < 0) {
-            AddInstr(RiscvInstr::LW, reg[i], reg[RiscvReg::sp], NULL, v->offset, "");
+            i = selectRegToSpill_param(live);
+            spillReg(i, live);
+            if (v->kind.tag == IR_INTEGER)
+                AddInstr(RiscvInstr::LI, reg[i], NULL, NULL, v->kind.data.integer.value, "");
+            else
+                AddInstr(RiscvInstr::LW, reg[i], reg[RiscvReg::sp], NULL, v->offset, "");
             AddInstr(RiscvInstr::SW, reg[i], reg[RiscvReg::sp], NULL, v->arg_offset, "");
         }
         else {
@@ -140,12 +164,24 @@ void RiscvProgram::passParamReg(value_ptr v, int cnt, LiveSet &live) {
 }
 
 void RiscvProgram::AddRet(value_ptr v) {
+    LiveSet liveness = v->liveout;
+    if (v->kind.data.ret.value != NULL)
+        liveness.insert(v->kind.data.ret.value);
+    SpillDirtyRegs(liveness);
     if (v->kind.data.ret.value == NULL) {
+        if (func_cur_has_call)
+            AddInstr(RiscvInstr::LW, reg[RiscvReg::ra], reg[RiscvReg::sp], NULL, offset - 4, "");
+        if (offset)
+            AddInstr(RiscvInstr::ADDI, reg[RiscvReg::sp], reg[RiscvReg::sp], NULL, offset, "");
         AddInstr(RiscvInstr::RET, NULL, NULL, NULL, 0, "");
         return;
     }
     int r1 = GetRegForRead(v->kind.data.ret.value, 0, v->liveout);
     AddInstr(RiscvInstr::MV, reg[RiscvReg::a0], reg[r1], NULL, 0, "");
+    if (func_cur_has_call)
+        AddInstr(RiscvInstr::LW, reg[RiscvReg::ra], reg[RiscvReg::sp], NULL, offset - 4, "");
+    if (offset)
+        AddInstr(RiscvInstr::ADDI, reg[RiscvReg::sp], reg[RiscvReg::sp], NULL, offset, "");
     AddInstr(RiscvInstr::RET, NULL, NULL, NULL, 0, "");
 }
 
@@ -258,7 +294,15 @@ void RiscvInstr::Dump(std::ostream &os) {
         }
         case RiscvInstr::LI: os << "  li " << r0->name << ", " << imm << std::endl; break;
         case RiscvInstr::LA: os << "  la " << r0->name << ", " << label << std::endl; break;
-        case RiscvInstr::SW: os << "  sw " << r0->name << ", " << imm << "(" << r1->name << ")" << std::endl; break;
+        case RiscvInstr::SW: {
+            if (r1 == NULL) {
+                os << "  sw " << r0->name << ", 0(" << label << ")" << std::endl;
+            }
+            else {
+                os << "  sw " << r0->name << ", " << imm << "(" << r1->name << ")" << std::endl;
+            }
+            break;
+        }
         case RiscvInstr::MV: os << "  mv " << r0->name << ", " << r1->name << std::endl; break;
         case RiscvInstr::XOR: os << "  xor " << r0->name << ", " << r1->name << ", " << r2->name << std::endl; break;
         case RiscvInstr::NOT: assert(false); break;
@@ -312,7 +356,7 @@ int RiscvProgram::GetRegForRead(value_ptr v, int avoid1, LiveSet &live) {
 }
 
 int RiscvProgram::GetRegForWrite(value_ptr v, int avoid1, int avoid2, LiveSet &live) {
-    if (v == NULL || live.count(v) == 0)
+    if ((v == NULL || live.count(v) == 0) && v->kind.tag != IR_GLOBAL_ALLOC)
         return RiscvReg::zero;
 
     int i = lookupReg(v);
@@ -369,14 +413,48 @@ int RiscvProgram::selectRegToSpill(int avoid1, int avoid2, LiveSet& live) {
     return lastUsedReg;
 }
 
+bool isParamReg(int i) {
+    if (i >= RiscvReg::a0 && i <= RiscvReg::a7) return true;
+    else return false;
+}
+
+int RiscvProgram::selectRegToSpill_param(LiveSet& live) {
+    // 寻找一个已经不活跃的寄存器
+    for (int i = 0; i < RiscvReg::TOTAL_NUM; i ++ ) {
+        if (!reg[i]->general)
+            continue;
+        if (!isParamReg(i) && live.count(reg[i]->var) == 0)
+            return i;
+    }
+
+    // 寻找一个clean的寄存器
+    for (int i = 0; i < RiscvReg::a0; i ++ ) {
+        if (!reg[i]->general)
+            continue;
+        if (!isParamReg(i) && !reg[i]->dirty)
+            return i;
+    }
+
+    // 最坏的情况，所有的寄存器中存放的变量都是活跃且dirty的
+    int lastUsedReg = 0;
+    do {
+        lastUsedReg = (lastUsedReg + 1) % RiscvReg::a0;
+    } while (isParamReg(lastUsedReg) || !reg[lastUsedReg]->general);
+
+    return lastUsedReg;
+}
+
 void RiscvProgram::spillReg(int i, LiveSet &live) {
     value_ptr v = reg[i]->var;
 
-    if ((v != NULL) && reg[i]->dirty && live.count(v) != 0) {
-        if (v->kind.tag == IR_GLOBAL_ALLOC)
+    if ((v != NULL) && reg[i]->dirty && (live.count(v) != 0 || v->kind.tag == IR_GLOBAL_ALLOC)) {
+        if (v->kind.tag == IR_GLOBAL_ALLOC) {
+            printf("here\n");
             AddInstr(RiscvInstr::SW, reg[i], NULL, NULL, 0, v->name.substr(1));
-        else
+        }
+        else {
             AddInstr(RiscvInstr::SW, reg[i], reg[RiscvReg::sp], NULL, v->offset, "");
+        }
     }
 
     reg[i]->var = NULL;
@@ -388,7 +466,7 @@ void RiscvProgram::SpillDirtyRegs(LiveSet &live) {
     int i;
 
     for (i = 0; i < RiscvReg::TOTAL_NUM; i ++ ) {
-        if ((reg[i]->var != NULL) && reg[i]->dirty && live.count(reg[i]->var))
+        if ((reg[i]->var != NULL) && reg[i]->dirty && (live.count(reg[i]->var) || reg[i]->var->kind.tag == IR_GLOBAL_ALLOC))
             break;
 
         reg[i]->var = NULL;
