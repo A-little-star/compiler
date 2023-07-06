@@ -4,10 +4,57 @@
 
 extern int offset;
 extern bool func_cur_has_call;
+extern int SizeOfType(type_kind ty);
 
 void RiscvProgram::AddAlloc(value_ptr v) {
     int r0 = GetRegForWrite(v, 0, 0, v->liveout);
     AddInstr(RiscvInstr::ADDI, reg[r0], reg[RiscvReg::sp], NULL, v->offset - 4, "");
+}
+
+void RiscvProgram::AddGetelemptr(value_ptr v) {
+    LiveSet liveness = v->liveout;
+    liveness.insert(v->kind.data.get_elem_ptr.index);
+    liveness.insert(v->kind.data.get_elem_ptr.src);
+    int r0 = GetRegForRead(v->kind.data.get_elem_ptr.index, 0, liveness);
+    
+    int r1 = GetRegForWrite(v, r0, 0, liveness);
+    type_kind type = *v->kind.data.get_elem_ptr.src->ty.data.pointer.base;
+    AddInstr(RiscvInstr::LI, reg[r1], NULL, NULL, SizeOfType(*type.data.array.base), "");
+    AddInstr(RiscvInstr::MUL, reg[r1], reg[r1], reg[r0], 0, "");
+    
+    if (v->kind.data.get_elem_ptr.src->kind.tag == IR_GLOBAL_ALLOC) {
+        liveness.insert(v->kind.data.get_elem_ptr.src);
+        int r2 = GetRegForWrite(v->kind.data.get_elem_ptr.src, r0, r1, liveness);
+        AddInstr(RiscvInstr::LA, reg[r2], NULL, NULL, 0, v->kind.data.get_elem_ptr.src->name.substr(1));
+        AddInstr(RiscvInstr::ADD, reg[r1], reg[r1], reg[r2], 0, "");
+    }
+    else {
+        int r2 = GetRegForRead(v->kind.data.get_elem_ptr.src, r0, liveness);
+        AddInstr(RiscvInstr::ADD, reg[r1], reg[r1], reg[r2], 0, "");
+    }
+}
+
+void RiscvProgram::AddGetptr(value_ptr v) {
+    LiveSet liveness = v->liveout;
+    liveness.insert(v->kind.data.get_ptr.index);
+    liveness.insert(v->kind.data.get_ptr.src);
+    int r0 = GetRegForRead(v->kind.data.get_ptr.index, 0, liveness);
+    
+    int r1 = GetRegForWrite(v, r0, 0, liveness);
+    type_kind type = *v->kind.data.get_ptr.src->ty.data.pointer.base;
+    AddInstr(RiscvInstr::LI, reg[r1], NULL, NULL, SizeOfType(type), "");
+    AddInstr(RiscvInstr::MUL, reg[r1], reg[r1], reg[r0], 0, "");
+
+    if (v->kind.data.get_ptr.src->kind.tag == IR_GLOBAL_ALLOC) {
+        liveness.insert(v->kind.data.get_ptr.src);
+        int r2 = GetRegForWrite(v->kind.data.get_ptr.src, r0, r1, liveness);
+        AddInstr(RiscvInstr::LA, reg[r2], NULL, NULL, 0, v->kind.data.get_ptr.src->name.substr(1));
+        AddInstr(RiscvInstr::ADD, reg[r1], reg[r1], reg[r2], 0, "");
+    }
+    else {
+        int r2 = GetRegForRead(v->kind.data.get_ptr.src, r0, liveness);
+        AddInstr(RiscvInstr::ADD, reg[r1], reg[r1], reg[r2], 0, "");
+    }
 }
 
 void RiscvProgram::AddLoad(value_ptr v) {
@@ -361,7 +408,7 @@ int RiscvProgram::GetRegForRead(value_ptr v, int avoid1, LiveSet &live) {
         }
         else if (v->kind.tag == IR_GLOBAL_ALLOC) {
             reg[i]->var = v;
-            AddInstr(RiscvInstr::LW, reg[i], NULL, NULL, 0, v->name.substr(1));
+            AddInstr(RiscvInstr::LA, reg[i], NULL, NULL, 0, v->name.substr(1));
         }
         else {
             reg[i]->var = v;

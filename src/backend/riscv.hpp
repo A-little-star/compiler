@@ -183,6 +183,8 @@ class RiscvProgram {
     void AddRet(value_ptr v);
     void AddCall(value_ptr v);
     void passParamReg(value_ptr v, int cnt, LiveSet &live);
+    void AddGetelemptr(value_ptr v);
+    void AddGetptr(value_ptr v);
 
     void AddData(RiscvData *v) {
         data_segment.push_back(v);

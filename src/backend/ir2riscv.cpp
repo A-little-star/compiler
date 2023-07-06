@@ -8,6 +8,7 @@
 extern std::unordered_map<value_ptr, int> off_map;
 extern std::unordered_map<value_ptr, int> arg_off_map;
 extern std::unordered_map<func_ptr, int> has_call;
+extern int SizeOfType(type_kind ty);
 bool func_cur_has_call = false;
 std::string func_name;
 int offset = 0;
@@ -29,7 +30,6 @@ void GenRisc(const prog_ptr prog, RiscvProgram *rp) {
     RiscvData *data = new RiscvData;
     rp->AddData(data);
     GenRisc(prog->values, rp);
-
     GenRisc(prog->funcs, rp);
 }
 
@@ -96,6 +96,24 @@ void GenRisc(const basic_block_ptr bb, RiscvProgram *rp) {
     GenRisc(bb->insts, rp);
 }
 
+void DumpInit(value_ptr v, RiscvGlobalValue *global_value) {
+    if (v->kind.tag == IR_INTEGER) {
+        RiscvValueInit *init = new RiscvValueInit;
+        init->type = RiscvValueInit::word;
+        init->value = v->kind.data.integer.value;
+        global_value->AddInit(init);
+    }
+    else if (v->kind.tag == IR_AGGREGATE) {
+        for (int i = 0; i < v->kind.data.aggregate.elems->len; i ++ ) {
+            value_ptr val = (value_ptr)v->kind.data.aggregate.elems->buffer[i];
+            DumpInit(val, global_value);
+        }
+    }
+    else {
+        assert(false);
+    }
+}
+
 void GenRisc(const value_ptr val, RiscvProgram *rp) {
     const auto &kind = val->kind;
     switch (kind.tag) {
@@ -105,17 +123,36 @@ void GenRisc(const value_ptr val, RiscvProgram *rp) {
         case IR_GLOBAL_ALLOC: {
             RiscvGlobalValue *global_value = new RiscvGlobalValue;
             global_value->name = val->name.substr(1);
-            RiscvValueInit *init = new RiscvValueInit;
-            int value = val->kind.data.global_alloc.init->kind.data.integer.value;
-            if (!value) {
+            if (val->kind.data.global_alloc.init->kind.tag == IR_INTEGER) {
+                RiscvValueInit *init = new RiscvValueInit;
+                int value = val->kind.data.global_alloc.init->kind.data.integer.value;
+                if (!value) {
+                    init->type = RiscvValueInit::zero;
+                    init->value = 4;
+                }
+                else {
+                    init->type = RiscvValueInit::word;
+                    init->value = value;
+                }
+                global_value->AddInit(init);
+            }
+            else if (val->kind.data.global_alloc.init->kind.tag == IR_ZERO_INIT) {
+                RiscvValueInit *init = new RiscvValueInit;
                 init->type = RiscvValueInit::zero;
-                init->value = 4;
+                init->value = SizeOfType(*val->ty.data.pointer.base);
+                global_value->AddInit(init);
             }
             else {
-                init->type = RiscvValueInit::word;
-                init->value = value;
+                if (val->kind.data.global_alloc.init->kind.data.aggregate.elems == NULL) {
+                    RiscvValueInit *init = new RiscvValueInit;
+                    init->type = RiscvValueInit::zero;
+                    init->value = SizeOfType(*val->ty.data.pointer.base);
+                    global_value->AddInit(init);
+                }
+                else {
+                    DumpInit(val->kind.data.global_alloc.init, global_value);
+                }
             }
-            global_value->AddInit(init);
             rp->AddGlobalValue(global_value);
             break;
         }
@@ -139,6 +176,12 @@ void GenRisc(const value_ptr val, RiscvProgram *rp) {
             break;
         case IR_BINARY:
             rp->AddBinary(val);
+            break;
+        case IR_GET_ELEM_PTR:
+            rp->AddGetelemptr(val);
+            break;
+        case IR_GET_PTR:
+            rp->AddGetptr(val);
             break;
         default: {
             printf("There is an invalid type in GenRisc of value_ptr!\n");

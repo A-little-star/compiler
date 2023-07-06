@@ -100,7 +100,8 @@ int main(int argc, const char *argv[]) {
     // 遍历数据结构形式的IR，生成RISC-V汇编（数据结构形式）
     RiscvProgram *rp = new RiscvProgram;
     ir2riscv(prog, rp);
-
+    printf("Asm is built successfully!\n");
+    
     // 将数据结构形式的汇编输出到output文件中显示
     ofstream file_o(output);
     if (file_o.is_open()) {

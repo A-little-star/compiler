@@ -29,8 +29,6 @@ int CalStackMem(const func_ptr func) {
                     s += SizeOfType(type);
                     break;
                 }
-                case IR_BINARY: s += 4; break;
-                case IR_LOAD: s += 4; break;
                 case IR_CALL: {
                     has_call[func] = 1;
                     r = 4;
@@ -44,7 +42,15 @@ int CalStackMem(const func_ptr func) {
                     }
                     break;
                 }
-                default: break;
+                case IR_BINARY:
+                case IR_LOAD:
+                case IR_GET_ELEM_PTR:
+                case IR_GET_PTR: s += 4; break;
+                case IR_STORE:
+                case IR_BRANCH:
+                case IR_JUMP:
+                case IR_RETURN: break;
+                default: assert(false);
             }
         }
     }
@@ -79,6 +85,8 @@ int CalStackMem(const func_ptr func) {
                     num += SizeOfType(*inst->ty.data.pointer.base);
                     break;
                 }
+                case IR_GET_ELEM_PTR:
+                case IR_GET_PTR:
                 case IR_BINARY:
                 case IR_LOAD: {
                     off_map[inst] = s + a - num - 4;
