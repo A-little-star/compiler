@@ -8,7 +8,9 @@ extern int SizeOfType(type_kind ty);
 
 void RiscvProgram::AddAlloc(value_ptr v) {
     int r0 = GetRegForWrite(v, 0, 0, v->liveout);
-    AddInstr(RiscvInstr::ADDI, reg[r0], reg[RiscvReg::sp], NULL, v->offset - 4, "");
+    type_kind ty = *v->ty.data.pointer.base;
+    if (r0 != RiscvReg::zero)
+        AddInstr(RiscvInstr::ADDI, reg[r0], reg[RiscvReg::sp], NULL, v->offset - SizeOfType(ty), "");
 }
 
 void RiscvProgram::AddGetelemptr(value_ptr v) {
@@ -19,6 +21,7 @@ void RiscvProgram::AddGetelemptr(value_ptr v) {
     
     int r1 = GetRegForWrite(v, r0, 0, liveness);
     type_kind type = *v->kind.data.get_elem_ptr.src->ty.data.pointer.base;
+    assert(type.tag == KOOPA_TYPE_ARRAY);
     AddInstr(RiscvInstr::LI, reg[r1], NULL, NULL, SizeOfType(*type.data.array.base), "");
     AddInstr(RiscvInstr::MUL, reg[r1], reg[r1], reg[r0], 0, "");
     
@@ -30,7 +33,7 @@ void RiscvProgram::AddGetelemptr(value_ptr v) {
     }
     else {
         int r2 = GetRegForRead(v->kind.data.get_elem_ptr.src, r0, liveness);
-        AddInstr(RiscvInstr::ADD, reg[r1], reg[r1], reg[r2], 0, "");
+        AddInstr(RiscvInstr::ADD, reg[r1], reg[r2], reg[r1], 0, "");
     }
 }
 
@@ -53,7 +56,7 @@ void RiscvProgram::AddGetptr(value_ptr v) {
     }
     else {
         int r2 = GetRegForRead(v->kind.data.get_ptr.src, r0, liveness);
-        AddInstr(RiscvInstr::ADD, reg[r1], reg[r1], reg[r2], 0, "");
+        AddInstr(RiscvInstr::ADD, reg[r1], reg[r2], reg[r1], 0, "");
     }
 }
 

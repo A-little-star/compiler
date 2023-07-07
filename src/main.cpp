@@ -126,6 +126,7 @@ int main(int argc, const char *argv[]) {
     delete v;
     v = NULL;
     FreeMem(prog);
+    delete rp;
   }
   return 0;
 }

@@ -100,6 +100,12 @@ class RiscvBasicBlock {
     std::string name;
     std::vector<RiscvInstr*> instr;
 
+    ~RiscvBasicBlock() {
+        for (size_t i = 0; i < instr.size(); i ++ ) {
+            delete instr[i];
+        }
+    }
+
     void Dump(std::ostream &os);
 
     void AddInstr(RiscvInstr *v) {
@@ -111,6 +117,12 @@ class RiscvFunc {
     public:
     std::string name;
     std::vector<RiscvBasicBlock*> bbs;
+
+    ~RiscvFunc() {
+        for (size_t i = 0; i < bbs.size(); i ++ ) {
+            delete bbs[i];
+        }
+    }
 
     void Dump(std::ostream &os);
 
@@ -138,6 +150,12 @@ class RiscvGlobalValue {
     std::string name;
     std::vector<RiscvValueInit*> init;
 
+    ~RiscvGlobalValue() {
+        for (size_t i = 0; i < init.size(); i ++ ) {
+            delete init[i];
+        }
+    }
+
     void Dump(std::ostream &os);
 
     void AddInit(RiscvValueInit *v) {
@@ -148,6 +166,12 @@ class RiscvGlobalValue {
 class RiscvData {
     public:
     std::vector<RiscvGlobalValue*> data;
+
+    ~RiscvData() {
+        for (size_t i = 0; i < data.size(); i ++ ) {
+            delete data[i];
+        }
+    }
 
     void Dump(std::ostream &os);
 
@@ -160,9 +184,20 @@ class RiscvProgram {
     public:
     RiscvReg *reg[RiscvReg::TOTAL_NUM];
 
-    RiscvProgram();
     std::vector<RiscvData*> data_segment;
     std::vector<RiscvFunc*> func_segment;
+    RiscvProgram();
+    ~RiscvProgram() {
+        for (size_t i = 0; i < data_segment.size(); i ++ ) {
+            delete data_segment[i];
+        }
+        for (size_t i = 0; i < func_segment.size(); i ++ ) {
+            delete func_segment[i];
+        }
+        for (size_t i = 0; i < RiscvReg::TOTAL_NUM; i ++ ) {
+            delete reg[i];
+        }
+    }
 
     void Dump(std::ostream &os);
 

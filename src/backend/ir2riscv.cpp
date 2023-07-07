@@ -188,4 +188,5 @@ void GenRisc(const value_ptr val, RiscvProgram *rp) {
             assert(false);
         }
     }
+    rp->SpillDirtyRegs(val->liveout);
 }

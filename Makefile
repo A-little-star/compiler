@@ -100,4 +100,15 @@ $(BUILD_DIR)/%.tab$(FB_EXT): $(SRC_DIR)/%.y
 clean:
 	-rm -rf $(BUILD_DIR)
 
+koopa:
+	-build/compiler -koopa hello.c -o hello.koopa
+
+riscv:
+	-build/compiler -riscv hello.c -o hello.s
+
+run:
+	$(shell clang hello.s -c -o hello.o -target riscv32-unknown-linux-elf -march=rv32im -mabi=ilp32)
+	$(shell ld.lld hello.o -L$CDE_LIBRARY_PATH/riscv32 -lsysy -o hello)
+	-qemu-riscv32-static hello
+
 -include $(DEPS)
