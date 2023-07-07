@@ -2,3 +2,5 @@ build/
 hello.c
 hello.koopa
 hello.s
+hello.o
+hello
