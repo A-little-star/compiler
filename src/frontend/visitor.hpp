@@ -99,6 +99,19 @@ class Translate_Helper {
             return dim;
         }
 
+        void AddAlloc(value_ptr v) {
+            basic_block_ptr entry = (basic_block_ptr)func_cur->bbs->buffer[0];
+            entry->insts->len ++;
+            int i;
+            for (i = entry->insts->len - 1; i >= 0; i -- ) {
+                value_ptr value = (value_ptr)entry->insts->buffer[i];
+                if (value->kind.tag != IR_ALLOC) entry->insts->buffer[i + 1] = value;
+                else break;
+            }
+            i ++;
+            entry->insts->buffer[i] = v;
+        }
+
         value_ptr NewValue() {
             // 新建一个value类型，并为其成员变量分配内存空间
             value_ptr val = new value;

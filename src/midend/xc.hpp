@@ -323,7 +323,9 @@ struct basic_block {
     std::unordered_set<basic_block_ptr> dom_by;
     // 被它支配的节点集
     std::vector<basic_block_ptr> doms;
-    // 
+    // 支配边界集
+    std::unordered_set<basic_block_ptr> df;
+    // 该基本块在控制流图种的后继结点
     std::vector<basic_block_ptr> next;
     std::set<value_ptr> def;
     std::set<value_ptr> liveuse;

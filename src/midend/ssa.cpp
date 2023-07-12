@@ -61,9 +61,26 @@ void BuildDomTree(func_ptr func) {
     dfs(entry, 0);
 }
 
+void ComputeDF(func_ptr func) {
+    for (int i = 0; i < func->bbs->len; i ++ ) {
+        basic_block_ptr from = (basic_block_ptr)func->bbs->buffer[i];
+        if (from->insts->len == 0) continue;
+        for (basic_block_ptr to : from->next) {
+            if (to) {
+                basic_block_ptr x = from;
+                while (x == to || to->dom_by.find(x) == to->dom_by.end()) {
+                    from->df.insert(to);
+                    x = x->idom;
+                }
+            }
+        }
+    }
+}
+
 void toSSA(prog_ptr prog) {
     for (int i = 0; i < prog->funcs->len; i ++ ) {
         func_ptr func = (func_ptr)prog->funcs->buffer[i];
         BuildDomTree(func);
+        ComputeDF(func);
     }
 }
