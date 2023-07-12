@@ -180,9 +180,9 @@ class GenIR : public Visitor {
         v_alloc->ty.tag = KOOPA_TYPE_POINTER;
         v_alloc->ty.data.pointer.base = new type_kind;
         *v_alloc->ty.data.pointer.base = fparam->ty;
-        // v_alloc->ty.tag = param->ty.tag;
         v_alloc->kind.tag = IR_ALLOC;
-        tr->AddValue(v_alloc);
+        // tr->AddValue(v_alloc);
+        tr->AddAlloc(v_alloc);
         value_ptr v_store = tr->NewValue();
         v_store->kind.tag = IR_STORE;
         v_store->kind.data.store.dest = v_alloc;
@@ -319,7 +319,8 @@ class GenIR : public Visitor {
                 
                 val->name = "@" + ConstDef->ident + '_' + std::to_string(rep_map[ConstDef->ident]);
                 val->kind.tag = IR_ALLOC;
-                tr->AddValue(val);
+                // tr->AddValue(val);
+                tr->AddAlloc(val);
                 tr->arr_cur = val;
                 memset(tr->arr_index_cur, 0, sizeof(tr->arr_index_cur));
 
@@ -509,7 +510,8 @@ class GenIR : public Visitor {
                         }
                         val_dest->kind.data.alloc.name[str.size()] = '\0';
                         // val_dest->kind.data.alloc.name = "@" + VarDef->ident;
-                        tr->AddValue(val_dest);
+                        // tr->AddValue(val_dest);
+                        tr->AddAlloc(val_dest);
 
                         bt.current->symtable[VarDef->ident].val_p = (void*)val_dest;
                     }
@@ -568,7 +570,8 @@ class GenIR : public Visitor {
                             val_dest->kind.data.alloc.name[i] = str[i];
                         }
                         val_dest->kind.data.alloc.name[str.size()] = '\0';
-                        tr->AddValue(val_dest);
+                        // tr->AddValue(val_dest);
+                        tr->AddAlloc(val_dest);
 
                         // 将变量添加到符号表中
                         
@@ -648,7 +651,8 @@ class GenIR : public Visitor {
                 type->tag = KOOPA_TYPE_INT32;
                 val->name = "@" + VarDef->ident + '_' + std::to_string(rep_map[VarDef->ident]);
                 val->kind.tag = IR_ALLOC;
-                tr->AddValue(val);
+                // tr->AddValue(val);
+                tr->AddAlloc(val);
                 tr->arr_cur = val;
 
                 bt.current->symtable[VarDef->ident].val_p = val;
@@ -1634,7 +1638,8 @@ class GenIR : public Visitor {
             result->name = "%result__" + std::to_string(result_id);
             result_id ++;
             result->kind.tag = IR_ALLOC;
-            tr->AddValue(result);
+            // tr->AddValue(result);
+            tr->AddAlloc(result);
             
             value_ptr l_val = (value_ptr)LAndExp->landexp->accept(this);
             // tr->AddValue(l_val);
@@ -1714,7 +1719,8 @@ class GenIR : public Visitor {
             result->name = "%result__" + std::to_string(result_id);
             result_id ++;
             result->kind.tag = IR_ALLOC;
-            tr->AddValue(result);
+            // tr->AddValue(result);
+            tr->AddAlloc(result);
             
             value_ptr l_val = (value_ptr)LOrExp->lorexp->accept(this);
             // tr->AddValue(l_val);

@@ -76,7 +76,13 @@ void GenCode(const func_ptr func, std::ostream &os) {
 
 void GenCode(const basic_block_ptr bb, std::ostream &os) {
     if (bb->insts->len == 0) return;
-    os << bb->name << ":\n";
+    os << bb->name;
+    if (bb->params->len != 0) {
+        os << "(";
+        GenCode(bb->params, os);
+        os << ")";
+    }
+    os << ":\n";
     GenCode(bb->insts, os);
 }
 
@@ -113,6 +119,14 @@ void GenCode(const value_ptr val, std::ostream &os) {
         case IR_FUNC_ARG:
         {
             if (val->kind.data.func_arg.index > 1) os << ",";
+            os << val->name << ": ";
+            type_kind type = val->ty;
+            DumpType(type, os);
+            break;
+        }
+        case IR_BLOCK_ARG:
+        {
+            if (val->kind.data.block_arg.index > 1) os << ",";
             os << val->name << ": ";
             type_kind type = val->ty;
             DumpType(type, os);

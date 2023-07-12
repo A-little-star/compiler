@@ -101,9 +101,10 @@ class Translate_Helper {
 
         void AddAlloc(value_ptr v) {
             basic_block_ptr entry = (basic_block_ptr)func_cur->bbs->buffer[0];
+            entry->insts->buffer.push_back(nullptr);
             entry->insts->len ++;
             int i;
-            for (i = entry->insts->len - 1; i >= 0; i -- ) {
+            for (i = entry->insts->len - 2; i >= 0; i -- ) {
                 value_ptr value = (value_ptr)entry->insts->buffer[i];
                 if (value->kind.tag != IR_ALLOC) entry->insts->buffer[i + 1] = value;
                 else break;
@@ -126,8 +127,10 @@ class Translate_Helper {
             basic_block_ptr bb = new basic_block;
             bb->params = new slice;
             bb->params->len = 0;
+            bb->params->kind = RISK_VALUE;
             bb->insts = new slice;
             bb->insts->len = 0;
+            bb->insts->kind = RISK_VALUE;
             return bb;
         }
 

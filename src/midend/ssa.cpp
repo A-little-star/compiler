@@ -77,10 +77,11 @@ void ComputeDF(func_ptr func) {
     }
 }
 
+void mem2reg(func_ptr func);
+
 void toSSA(prog_ptr prog) {
     for (int i = 0; i < prog->funcs->len; i ++ ) {
         func_ptr func = (func_ptr)prog->funcs->buffer[i];
-        BuildDomTree(func);
-        ComputeDF(func);
+        mem2reg(func);
     }
 }

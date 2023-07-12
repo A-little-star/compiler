@@ -332,6 +332,16 @@ struct basic_block {
     std::set<value_ptr> livein;
     std::set<value_ptr> liveout;
 
+    void DeleteInst(value_ptr v) {
+        for (auto it = insts->buffer.begin(); it != insts->buffer.end(); it ++ ) {
+            if (v == (value_ptr)(*it)) {
+                insts->buffer.erase(it);
+                break;
+            }
+        }
+        insts->len --;
+    }
+
     void UpdateLU(value_ptr v);
     void UpdateDEF(value_ptr v);
     void ComputeDefAndLiveUse();
