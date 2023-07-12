@@ -313,14 +313,18 @@ struct basic_block {
     slice_ptr params;
     // Instructions in this basic block.
     slice_ptr insts;
+    // 前驱结点集合
+    std::vector<basic_block_ptr> pred;
+    // Immediate dominator.
+    basic_block_ptr idom;
+    // 结点在支配树种的层数（入口基本块的层数为0）
+    u32 dom_level;
+    // 支配它的节点集
+    std::unordered_set<basic_block_ptr> dom_by;
+    // 被它支配的节点集
+    std::vector<basic_block_ptr> doms;
     // 
     std::vector<basic_block_ptr> next;
-    // Values that this basic block define.
-    // std::unordered_set<value_ptr> def;
-    // // Values that this basic block is used by.
-    // std::unordered_set<value_ptr> liveuse;
-    // std::unordered_set<value_ptr> livein;
-    // std::unordered_set<value_ptr> liveout;
     std::set<value_ptr> def;
     std::set<value_ptr> liveuse;
     std::set<value_ptr> livein;
@@ -336,6 +340,8 @@ struct basic_block {
 
 
 void irDS2Text(const prog_ptr prog, std::ostream &os);
+
+void toSSA(prog_ptr prog);
 
 void FreeMem(prog_ptr prog);
 

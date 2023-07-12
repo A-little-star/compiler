@@ -72,10 +72,13 @@ void GenFlowGraph(prog_ptr prog) {
             switch (end_val->kind.tag) {
                 case IR_JUMP:
                     bb->next.push_back(end_val->kind.data.jump.target);
+                    end_val->kind.data.jump.target->pred.push_back(bb);
                     break;
                 case IR_BRANCH:
                     bb->next.push_back(end_val->kind.data.branch.true_bb);
                     bb->next.push_back(end_val->kind.data.branch.false_bb);
+                    end_val->kind.data.branch.true_bb->pred.push_back(bb);
+                    end_val->kind.data.branch.false_bb->pred.push_back(bb);
                     break;
                 case IR_RETURN:
                     break;

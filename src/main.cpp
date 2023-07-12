@@ -53,6 +53,9 @@ int main(int argc, const char *argv[]) {
     GenFlowGraph(prog);
     printf("CFG is built successfully!\n");
 
+    toSSA(prog);
+    printf("SSA is built successfully!\n");
+
     prog->AnalyzeLiveness();
     printf("Liveness is built!\n");
 
