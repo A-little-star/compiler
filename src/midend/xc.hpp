@@ -221,7 +221,8 @@ typedef struct {
     slice_ptr args;
 } jump_t;
 
-typedef struct function *func_ptr;
+struct function_koopa;
+typedef struct function_koopa *func_ptr;
 
 typedef struct {
     // Callee.
@@ -293,7 +294,7 @@ typedef struct program {
 
 typedef program *prog_ptr;
 
-typedef struct function {
+typedef struct function_koopa {
     // Type of function's return value.
     type_kind ty;
     // Name of function.
