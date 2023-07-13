@@ -9,6 +9,7 @@
 #include "./midend/ast2ir.hpp"
 #include "./backend/riscv.hpp"
 #include "./midend/flow_graph.hpp"
+#include "./midend/used_by.hpp"
 
 using namespace std;
 
@@ -53,11 +54,14 @@ int main(int argc, const char *argv[]) {
     GenFlowGraph(prog);
     printf("CFG is built successfully!\n");
 
+    ComputeUsedBy(prog);
+    printf("Used_by is computed successfully!\n");
+
     toSSA(prog);
     printf("SSA is built successfully!\n");
 
-    prog->AnalyzeLiveness();
-    printf("Liveness is built!\n");
+    // prog->AnalyzeLiveness();
+    // printf("Liveness is built!\n");
 
     // 遍历数据结构形式的koopa IR，转化成文本形式输出到output文件中
     ofstream file_o(output);
@@ -69,18 +73,18 @@ int main(int argc, const char *argv[]) {
       cout << "main.cpp: Unable to create the output file." << endl;
 
     // 将output文件中的内容打印出来显示
-    ifstream file_i(output);
-    if (file_i.is_open()) {
-      string line;
-      while (getline(file_i, line)) {
-        cout << line << endl;
-      }
-      file_i.close();
-    }
-    else
-      cout << "main.cpp: Unable to create the input file." << endl;
+    // ifstream file_i(output);
+    // if (file_i.is_open()) {
+    //   string line;
+    //   while (getline(file_i, line)) {
+    //     cout << line << endl;
+    //   }
+    //   file_i.close();
+    // }
+    // else
+    //   cout << "main.cpp: Unable to create the input file." << endl;
 
-    DumpFlowGraph(prog, std::cout);
+    // DumpFlowGraph(prog, std::cout);
 
     // 释放IR所占用的内存
     delete v;

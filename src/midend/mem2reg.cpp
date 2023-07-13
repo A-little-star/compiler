@@ -5,6 +5,53 @@ void insertBBParam(basic_block_ptr bb, value_ptr param) {
     bb->params->buffer.push_back(param);
 }
 
+void replaceValue(func_ptr func, value_ptr value, value_ptr dest) {
+    for (int j = 0; j < func->bbs->len; j ++ ) {
+        basic_block_ptr bb = (basic_block_ptr)func->bbs->buffer[j];
+        for (int k = 0; k < bb->insts->len; k ++ ) {
+            value_ptr inst = (value_ptr)bb->insts->buffer[k];
+            switch (inst->kind.tag) {
+                case IR_ALLOC:
+                    break;
+                case IR_BINARY:
+                    if (inst->kind.data.binary.lhs == value) inst->kind.data.binary.lhs = dest;
+                    if (inst->kind.data.binary.rhs == value) inst->kind.data.binary.rhs = dest;
+                    break;
+                case IR_BRANCH:
+                    if (inst->kind.data.branch.cond == value) inst->kind.data.branch.cond = dest;
+                    break;
+                case IR_CALL:
+                    for (int i = 0; i < inst->kind.data.call.args->len; i ++ ) {
+                        value_ptr arg = (value_ptr)inst->kind.data.call.args->buffer[i];
+                        if (arg == value) inst->kind.data.call.args->buffer[i] = (void*)dest;
+                    }
+                    break;
+                case IR_GET_ELEM_PTR:
+                    if (inst->kind.data.get_elem_ptr.index == value) inst->kind.data.get_elem_ptr.index = dest;
+                    if (inst->kind.data.get_elem_ptr.src == value) inst->kind.data.get_elem_ptr.src = dest;
+                    break;
+                case IR_GET_PTR:
+                    if (inst->kind.data.get_ptr.index == value) inst->kind.data.get_ptr.index = dest;
+                    if (inst->kind.data.get_ptr.src == value) inst->kind.data.get_ptr.src = dest;
+                    break;
+                case IR_JUMP:
+                    break;
+                case IR_LOAD:
+                    if (inst->kind.data.load.src == value) inst->kind.data.load.src = dest;
+                    break;
+                case IR_RETURN:
+                    if (inst->kind.data.ret.value == value) inst->kind.data.ret.value = dest;
+                    break;
+                case IR_STORE:
+                    if (inst->kind.data.store.dest == value) inst->kind.data.store.dest = dest;
+                    if (inst->kind.data.store.value == value) inst->kind.data.store.value = dest;
+                    break;
+                default: assert(false);
+            }
+        }
+    }
+}
+
 void mem2reg(func_ptr func) {
     BuildDomTree(func);
     std::unordered_map<value_ptr, u32> alloc_ids;
@@ -63,5 +110,95 @@ void mem2reg(func_ptr func) {
         }
     }
     // mem2reg算法阶段2：变量重命名，即删除load，把load结果的引用换成对寄存器的引用，把store改成寄存器赋值
-
+    std::vector<std::pair<basic_block_ptr, std::vector<value_ptr>>> worklist2{
+        {(basic_block_ptr)func->bbs->buffer[0], std::vector<value_ptr>(alloc_ids.size())}
+    };
+    vis.clear();
+    while (!worklist2.empty()) {
+        basic_block_ptr bb = worklist2.back().first;
+        std::vector<value_ptr> values = worklist2.back().second;
+        worklist2.pop_back();
+        
+        if (!vis.count(bb)) {
+            vis.insert(bb);
+            for (int i = 0; i < bb->params->len; i ++ ) {
+                value_ptr param = (value_ptr)bb->params->buffer[i];
+                auto it = phis.find(param);
+                if (it != phis.end()) {
+                    values[it->second] = param;
+                }
+                else {
+                    assert(false);
+                }
+            }
+            for (int i = 0; i < bb->insts->len; i ++ ) {
+                value_ptr inst = (value_ptr)bb->insts->buffer[i];
+                if (auto it = alloc_ids.find(inst); it != alloc_ids.end()) {
+                    bb->DeleteInst(inst);
+                    delete inst;
+                    i --;
+                } else if (inst->kind.tag == IR_LOAD) {
+                    auto it = alloc_ids.find(inst->kind.data.load.src);
+                    if (it != alloc_ids.end()) {
+                        replaceValue(func, inst, values[it->second]);
+                        bb->DeleteInst(inst);
+                        inst->kind.data.load.src = nullptr;
+                        delete inst;
+                        i --;
+                    }
+                    else {
+                        assert(false);
+                    }
+                } else if (inst->kind.tag == IR_STORE) {
+                    auto it = alloc_ids.find(inst->kind.data.store.dest);
+                    if (it != alloc_ids.end()) {
+                        values[it->second] = inst->kind.data.store.value;
+                        bb->DeleteInst(inst);
+                        inst->kind.data.store.dest = nullptr;
+                        delete inst;
+                        i --;
+                    }
+                    else {
+                        assert(false);
+                    }
+                }
+            }
+            for (basic_block_ptr x : bb->next) {
+                if (x) {
+                    worklist2.emplace_back(x, values);
+                    for (int i = 0; i < x->params->len; i ++ ) {
+                        value_ptr param = (value_ptr)x->params->buffer[i];
+                        auto it = phis.find(param);
+                        if (it != phis.end()) {
+                            // for (auto y : x->pred) {
+                                value_ptr end_value = (value_ptr)bb->insts->buffer[bb->insts->len - 1];
+                                switch (end_value->kind.tag) {
+                                    case IR_JUMP:
+                                        assert(end_value->kind.data.jump.args != NULL);
+                                        end_value->kind.data.jump.args->len ++;
+                                        end_value->kind.data.jump.args->buffer.push_back(values[it->second]);
+                                        break;
+                                    case IR_BRANCH:
+                                        assert(end_value->kind.data.branch.true_args != NULL);
+                                        assert(end_value->kind.data.branch.false_args != NULL);
+                                        if (end_value->kind.data.branch.true_bb == x) {
+                                            end_value->kind.data.branch.true_args->len ++;
+                                            end_value->kind.data.branch.true_args->buffer.push_back(values[it->second]);
+                                        }
+                                        else if (end_value->kind.data.branch.false_bb == x) {
+                                            end_value->kind.data.branch.false_args->len ++;
+                                            end_value->kind.data.branch.false_args->buffer.push_back(values[it->second]);
+                                        }
+                                        break;
+                                    case IR_RETURN:
+                                        break;
+                                    default: assert(false);
+                                }
+                            // }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

@@ -798,6 +798,10 @@ class GenIR : public Visitor {
     }
     void *visit(OpenStmtAST *OpenStmt) {
         value_ptr val = tr->NewValue();
+        val->kind.data.branch.true_args = new slice;
+        val->kind.data.branch.true_args->len = 0;
+        val->kind.data.branch.false_args = new slice;
+        val->kind.data.branch.false_args->len = 0;
         val->kind.tag = IR_BRANCH;
         val->kind.data.branch.cond = (value_ptr)OpenStmt->exp->accept(this);
         tr->AddValue(val);
@@ -814,6 +818,8 @@ class GenIR : public Visitor {
 
             value_ptr val_j1 = tr->NewValue();
             val_j1->kind.tag = IR_JUMP;
+            val_j1->kind.data.jump.args = new slice;
+            val_j1->kind.data.jump.args->len = 0;
             tr->AddValue(val_j1);
 
             // 创建一个新的基本块，作为分支指令创建的基本块的出口
@@ -842,6 +848,8 @@ class GenIR : public Visitor {
 
             value_ptr val_j1 = tr->NewValue();
             val_j1->kind.tag = IR_JUMP;
+            val_j1->kind.data.jump.args = new slice;
+            val_j1->kind.data.jump.args->len = 0;
             tr->AddValue(val_j1);
 
             // 创建一个基本块，作为条件为false时跳转的基本块
@@ -856,6 +864,8 @@ class GenIR : public Visitor {
 
             value_ptr val_j2 = tr->NewValue();
             val_j2->kind.tag = IR_JUMP;
+            val_j2->kind.data.jump.args = new slice;
+            val_j2->kind.data.jump.args->len = 0;
             tr->AddValue(val_j2);
 
             // 创建一个新的基本块，作为分支指令创建的基本块的出口
@@ -883,6 +893,10 @@ class GenIR : public Visitor {
         else if (ClosedStmt->type == ClosedStmtAST::IF_ELSE) {
             // 创建一条新的branch指令
             value_ptr val = tr->NewValue();
+            val->kind.data.branch.true_args = new slice;
+            val->kind.data.branch.true_args->len = 0;
+            val->kind.data.branch.false_args = new slice;
+            val->kind.data.branch.false_args->len = 0;
             val->kind.tag = IR_BRANCH;
             val->kind.data.branch.cond = (value_ptr)ClosedStmt->exp->accept(this);
             tr->AddValue(val);
@@ -898,6 +912,8 @@ class GenIR : public Visitor {
             // 在处理完true基本块后，在当前基本块中添加跳转指令（由上一个bb_end跳转到当前bb_end）
             value_ptr val_j1 = tr->NewValue();
             val_j1->kind.tag = IR_JUMP;
+            val_j1->kind.data.jump.args = new slice;
+            val_j1->kind.data.jump.args->len = 0;
             tr->AddValue(val_j1);
             // 创建条件为false时应该跳转的基本块
             basic_block_ptr bb_false = tr->NewBasicBlock();
@@ -911,6 +927,8 @@ class GenIR : public Visitor {
             // 在处理完false基本块后，在当前基本块中添加跳转指令（由上一个bb_end跳转到当前bb_end）
             value_ptr val_j2 = tr->NewValue();
             val_j2->kind.tag = IR_JUMP;
+            val_j2->kind.data.jump.args = new slice;
+            val_j2->kind.data.jump.args->len = 0;
             tr->AddValue(val_j2);
             // 创建收尾基本块，分支执行完之后将跳转到这里
             basic_block_ptr bb_end = tr->NewBasicBlock();
@@ -948,6 +966,8 @@ class GenIR : public Visitor {
 
             // 创建一个新的jump指令，跳转向循环体
             value_ptr val_j1 = tr->NewValue();
+            val_j1->kind.data.jump.args = new slice;
+            val_j1->kind.data.jump.args->len = 0;
             tr->AddValue(val_j1);
             val_j1->kind.tag = IR_JUMP;
 
@@ -980,6 +1000,10 @@ class GenIR : public Visitor {
 
             // 在while_entry的末尾添加br指令
             value_ptr val_br = tr->NewValue();
+            val_br->kind.data.branch.true_args = new slice;
+            val_br->kind.data.branch.true_args->len = 0;
+            val_br->kind.data.branch.false_args = new slice;
+            val_br->kind.data.branch.false_args->len = 0;
             val_br->kind.tag = IR_BRANCH;
             val_br->kind.data.branch.cond = (value_ptr)NonIfStmt->exp->accept(this);
             tr->AddValue(val_br);
@@ -991,6 +1015,8 @@ class GenIR : public Visitor {
             NonIfStmt->stmt->accept(this);
             // 在循环体的末尾添加Jump指令
             value_ptr val_j2 = tr->NewValue();
+            val_j2->kind.data.jump.args = new slice;
+            val_j2->kind.data.jump.args->len = 0;
             tr->AddValue(val_j2);
             val_j2->kind.tag = IR_JUMP;
             val_j2->kind.data.jump.target = while_entry;
@@ -1025,6 +1051,8 @@ class GenIR : public Visitor {
 
             // 创建一个新的jump指令，跳转向循环条件判断部分
             value_ptr val_j1 = tr->NewValue();
+            val_j1->kind.data.jump.args = new slice;
+            val_j1->kind.data.jump.args->len = 0;
             tr->AddValue(val_j1);
             val_j1->kind.tag = IR_JUMP;
 
@@ -1057,6 +1085,10 @@ class GenIR : public Visitor {
 
             // 在while_entry的末尾添加br指令
             value_ptr val_br = tr->NewValue();
+            val_br->kind.data.branch.true_args = new slice;
+            val_br->kind.data.branch.true_args->len = 0;
+            val_br->kind.data.branch.false_args = new slice;
+            val_br->kind.data.branch.false_args->len = 0;
             val_br->kind.tag = IR_BRANCH;
             val_br->kind.data.branch.cond = (value_ptr)NonIfStmt->exp->accept(this);
             tr->AddValue(val_br);
@@ -1069,6 +1101,8 @@ class GenIR : public Visitor {
             NonIfStmt->lessstmt->accept(this);
             // 在循环体的末尾添加Jump指令
             value_ptr val_j2 = tr->NewValue();
+            val_j2->kind.data.jump.args = new slice;
+            val_j2->kind.data.jump.args->len = 0;
             tr->AddValue(val_j2);
             val_j2->kind.tag = IR_JUMP;
             val_j2->kind.data.jump.target = while_entry;
@@ -1191,6 +1225,8 @@ class GenIR : public Visitor {
             }
             value_ptr val = tr->NewValue();
             val->kind.tag = IR_JUMP;
+            val->kind.data.jump.args = new slice;
+            val->kind.data.jump.args->len = 0;
             val->kind.data.jump.target = lt.current->loop_end;
             tr->AddValue(val);
         }
@@ -1201,6 +1237,8 @@ class GenIR : public Visitor {
             }
             value_ptr val = tr->NewValue();
             val->kind.tag = IR_JUMP;
+            val->kind.data.jump.args = new slice;
+            val->kind.data.jump.args->len = 0;
             val->kind.data.jump.target = lt.current->loop_entry;
             tr->AddValue(val);
         }
@@ -1645,6 +1683,10 @@ class GenIR : public Visitor {
             // tr->AddValue(l_val);
 
             value_ptr br = tr->NewValue();
+            br->kind.data.branch.true_args = new slice;
+            br->kind.data.branch.true_args->len = 0;
+            br->kind.data.branch.false_args = new slice;
+            br->kind.data.branch.false_args->len = 0;
             br->kind.tag = IR_BRANCH;
             br->kind.data.branch.cond = l_val;
             tr->AddValue(br);
@@ -1683,6 +1725,8 @@ class GenIR : public Visitor {
             tr->AddValue(store_l);
             value_ptr jump_l = tr->NewValue();
             jump_l->kind.tag = IR_JUMP;
+            jump_l->kind.data.jump.args = new slice;
+            jump_l->kind.data.jump.args->len = 0;
             jump_l->kind.data.jump.target = b3;
             tr->AddValue(jump_l);
 
@@ -1694,6 +1738,8 @@ class GenIR : public Visitor {
             tr->AddValue(store_r);
             value_ptr jump_r = tr->NewValue();
             jump_r->kind.tag = IR_JUMP;
+            jump_r->kind.data.jump.args = new slice;
+            jump_r->kind.data.jump.args->len = 0;
             jump_r->kind.data.jump.target = b3;
             tr->AddValue(jump_r);
 
@@ -1726,6 +1772,10 @@ class GenIR : public Visitor {
             // tr->AddValue(l_val);
 
             value_ptr br = tr->NewValue();
+            br->kind.data.branch.true_args = new slice;
+            br->kind.data.branch.true_args->len = 0;
+            br->kind.data.branch.false_args = new slice;
+            br->kind.data.branch.false_args->len = 0;
             br->kind.tag = IR_BRANCH;
             br->kind.data.branch.cond = l_val;
             tr->AddValue(br);
@@ -1763,6 +1813,8 @@ class GenIR : public Visitor {
             tr->AddValue(store_l);
             value_ptr jump_l = tr->NewValue();
             jump_l->kind.tag = IR_JUMP;
+            jump_l->kind.data.jump.args = new slice;
+            jump_l->kind.data.jump.args->len = 0;
             jump_l->kind.data.jump.target = b3;
             tr->AddValue(jump_l);
 
@@ -1784,6 +1836,8 @@ class GenIR : public Visitor {
             tr->AddValue(store_r);
             value_ptr jump_r = tr->NewValue();
             jump_r->kind.tag = IR_JUMP;
+            jump_r->kind.data.jump.args = new slice;
+            jump_r->kind.data.jump.args->len = 0;
             jump_r->kind.data.jump.target = b3;
             tr->AddValue(jump_r);
 

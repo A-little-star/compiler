@@ -191,6 +191,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 case IR_GET_ELEM_PTR:
                 case IR_BINARY:
                 case IR_LOAD: os << "%" << val_map[kind.data.store.value] << ", "; break;
+                case IR_BLOCK_ARG:
                 case IR_FUNC_ARG: os << kind.data.store.value->name << ", "; break;
                 default: assert(false);
             }
@@ -278,7 +279,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
                     else assert(false);
                     break;
                 }
-                default: break;
+                default: assert(false);
             }
             val_map[val] = val_id;
             val_id ++;
@@ -288,21 +289,67 @@ void GenCode(const value_ptr val, std::ostream &os) {
         {
             os << "  br ";
             switch (kind.data.branch.cond->kind.tag) {
-                case IR_INTEGER: os << std::to_string(kind.data.branch.cond->kind.data.integer.value); break;
+                case IR_INTEGER: os << kind.data.branch.cond->kind.data.integer.value; break;
                 case IR_CALL:
                 case IR_BINARY:
                 case IR_GET_ELEM_PTR:
                 case IR_LOAD: os << "%" << std::to_string(val_map[kind.data.branch.cond]); break;
+                case IR_BLOCK_ARG:
                 case IR_FUNC_ARG: os << kind.data.branch.cond->name; break;
                 default: assert(false);
             }
-            os << ", " << kind.data.branch.true_bb->name << ", " << kind.data.branch.false_bb->name << std::endl;
+            os << ", " << kind.data.branch.true_bb->name;
+            if (val->kind.data.branch.true_args->len > 0) {
+                os << "(";
+                for (int i = 0; i < val->kind.data.branch.true_args->len; i ++ ) {
+                    if (i > 0) os << ", ";
+                    value_ptr arg = (value_ptr)val->kind.data.branch.true_args->buffer[i];
+                    if (arg->kind.tag == IR_INTEGER)
+                        os << arg->kind.data.integer.value;
+                    else if (arg->kind.tag == IR_BLOCK_ARG)
+                        os << arg->name;
+                    else
+                        os << "%" << val_map[arg];
+                }
+                os << ")";
+            }
+            os << ", " << kind.data.branch.false_bb->name;
+            if (val->kind.data.branch.false_args->len > 0) {
+                os << "(";
+                for (int i = 0; i < val->kind.data.branch.false_args->len; i ++ ) {
+                    if (i > 0) os << ", ";
+                    value_ptr arg = (value_ptr)val->kind.data.branch.false_args->buffer[i];
+                    if (arg->kind.tag == IR_INTEGER)
+                        os << arg->kind.data.integer.value;
+                    else if (arg->kind.tag == IR_BLOCK_ARG)
+                        os << arg->name;
+                    else
+                        os << "%" << val_map[arg];
+                }
+                os << ")";
+            }
+            os << std::endl;
             
             break;
         }
         case IR_JUMP:
         {
-            os << "  jump " << kind.data.jump.target->name << std::endl;
+            os << "  jump " << kind.data.jump.target->name;
+            if (val->kind.data.jump.args->len > 0) {
+                os << "(";
+                for (int i = 0; i < val->kind.data.jump.args->len; i ++ ) {
+                    if (i > 0) os << ", ";
+                    value_ptr arg = (value_ptr)val->kind.data.jump.args->buffer[i];
+                    if (arg->kind.tag == IR_INTEGER)
+                        os << arg->kind.data.integer.value;
+                    else if (arg->kind.tag == IR_BLOCK_ARG)
+                        os << arg->name;
+                    else
+                        os << "%" << val_map[arg];
+                }
+                os << ")";
+            }
+            os << std::endl;
             break;
         }
         case IR_CALL:
@@ -321,6 +368,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
                         case IR_GET_ELEM_PTR:
                         case IR_GET_PTR:
                         case IR_LOAD: os << "%" << val_map[ptr]; break;
+                        case IR_BLOCK_ARG:
                         case IR_FUNC_ARG: os << ptr->name; break;
                         default: assert(false);
                     }
@@ -343,6 +391,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
                         case IR_GET_ELEM_PTR:
                         case IR_ALLOC:
                         case IR_LOAD: os << "%" << val_map[ptr]; break;
+                        case IR_BLOCK_ARG:
                         case IR_FUNC_ARG: os << ptr->name; break;
                         default: assert(false);
                     }
@@ -365,7 +414,8 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 case IR_LOAD:
                 case IR_GET_ELEM_PTR:
                 case IR_BINARY: os << "  ret %" << val_map[kind.data.ret.value] << std::endl; break;
-                case IR_FUNC_ARG: os << kind.data.ret.value->name << std::endl; break;
+                case IR_BLOCK_ARG:
+                case IR_FUNC_ARG: os << "  ret " << kind.data.ret.value->name << std::endl; break;
                 default: assert(false);
             }
             break;
@@ -373,6 +423,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
         case IR_BINARY:
         {
             std::string l_str, r_str, op;
+            assert(kind.data.binary.lhs != NULL);
             // 生成第一个操作数的字符串
             switch (kind.data.binary.lhs->kind.tag) {
                 case IR_INTEGER: l_str = std::to_string(kind.data.binary.lhs->kind.data.integer.value); break;
@@ -381,9 +432,11 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 case IR_GET_PTR:
                 case IR_GET_ELEM_PTR:
                 case IR_LOAD: l_str = "%" + std::to_string(val_map[kind.data.binary.lhs]); break;
+                case IR_BLOCK_ARG:
                 case IR_FUNC_ARG: l_str = kind.data.binary.lhs->name; break;
                 default: assert(false);
             }
+            
             // 生成第二个操作数的字符串
             switch (kind.data.binary.rhs->kind.tag) {
                 case IR_INTEGER: r_str = std::to_string(kind.data.binary.rhs->kind.data.integer.value); break;
@@ -391,6 +444,7 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 case IR_BINARY:
                 case IR_GET_ELEM_PTR:
                 case IR_LOAD: r_str = "%" + std::to_string(val_map[kind.data.binary.rhs]); break;
+                case IR_BLOCK_ARG:
                 case IR_FUNC_ARG: r_str = kind.data.binary.rhs->name; break;
                 default: assert(false);
             }
@@ -517,15 +571,17 @@ void FreeMem(value_ptr val) {
         }
         case IR_BINARY:
         {
-            if (kind.data.binary.lhs->kind.tag == IR_INTEGER)
-                FreeMem(kind.data.binary.lhs);
-            if (kind.data.binary.rhs->kind.tag == IR_INTEGER)
-                FreeMem(kind.data.binary.rhs);
+            // if (kind.data.binary.lhs != NULL && kind.data.binary.lhs->kind.tag == IR_INTEGER)
+            //     FreeMem(kind.data.binary.lhs);
+            // if (kind.data.binary.rhs != NULL && kind.data.binary.rhs->kind.tag == IR_INTEGER)
+            //     FreeMem(kind.data.binary.rhs);
             break;
         }
         default:
             break;
     }
-    delete val;
-    val = NULL;
+    if (val != NULL) {
+        delete val;
+        val = NULL;
+    }
 }
