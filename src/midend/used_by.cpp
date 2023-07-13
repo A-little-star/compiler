@@ -79,5 +79,4 @@ void ComputeUsedBy(prog_ptr prog) {
             }
         }
     }
-    printf("Here is ok!\n");
 }

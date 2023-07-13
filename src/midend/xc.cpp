@@ -304,6 +304,10 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 for (int i = 0; i < val->kind.data.branch.true_args->len; i ++ ) {
                     if (i > 0) os << ", ";
                     value_ptr arg = (value_ptr)val->kind.data.branch.true_args->buffer[i];
+                    if (arg == NULL) {
+                        os << 0;
+                        continue;
+                    }
                     if (arg->kind.tag == IR_INTEGER)
                         os << arg->kind.data.integer.value;
                     else if (arg->kind.tag == IR_BLOCK_ARG)
@@ -319,6 +323,11 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 for (int i = 0; i < val->kind.data.branch.false_args->len; i ++ ) {
                     if (i > 0) os << ", ";
                     value_ptr arg = (value_ptr)val->kind.data.branch.false_args->buffer[i];
+                    // assert(arg != NULL);
+                    if (arg == NULL) {
+                        os << 0;
+                        continue;
+                    }
                     if (arg->kind.tag == IR_INTEGER)
                         os << arg->kind.data.integer.value;
                     else if (arg->kind.tag == IR_BLOCK_ARG)
@@ -335,11 +344,18 @@ void GenCode(const value_ptr val, std::ostream &os) {
         case IR_JUMP:
         {
             os << "  jump " << kind.data.jump.target->name;
+            
             if (val->kind.data.jump.args->len > 0) {
+                
                 os << "(";
                 for (int i = 0; i < val->kind.data.jump.args->len; i ++ ) {
                     if (i > 0) os << ", ";
                     value_ptr arg = (value_ptr)val->kind.data.jump.args->buffer[i];
+                    // assert(arg != NULL);
+                    if (arg == NULL) {
+                        os << 0;
+                        continue;
+                    }
                     if (arg->kind.tag == IR_INTEGER)
                         os << arg->kind.data.integer.value;
                     else if (arg->kind.tag == IR_BLOCK_ARG)
@@ -407,7 +423,6 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 os << "  ret\n";
                 break;
             }
-            std::cout << kind.data.ret.value->kind.tag << std::endl;
             switch (kind.data.ret.value->kind.tag) {
                 case IR_INTEGER: os << "  ret " << kind.data.ret.value->kind.data.integer.value << std::endl; break;
                 case IR_CALL:

@@ -47,7 +47,8 @@ void BuildDomTree(func_ptr func) {
     entry->idom = nullptr;
     for (int i = 1; i < func->bbs->len; i ++ ) {
         basic_block_ptr bb = (basic_block_ptr)func->bbs->buffer[i];
-        if (bb->insts->len == 0) continue;
+        // if (bb->insts->len == 0) continue;
+        assert(bb->insts->len != 0);
         for (basic_block_ptr d : bb->dom_by) {
             if (d != bb && std::all_of(bb->dom_by.begin(), bb->dom_by.end(), [d, bb](basic_block_ptr x) {
                 return x == bb || x == d || x->dom_by.find(d) == x->dom_by.end();
@@ -64,16 +65,61 @@ void BuildDomTree(func_ptr func) {
 void ComputeDF(func_ptr func) {
     for (int i = 0; i < func->bbs->len; i ++ ) {
         basic_block_ptr from = (basic_block_ptr)func->bbs->buffer[i];
+        assert(from != NULL);
         if (from->insts->len == 0) continue;
         for (basic_block_ptr to : from->next) {
+            assert(to != NULL);
             if (to) {
                 basic_block_ptr x = from;
                 while (x == to || to->dom_by.find(x) == to->dom_by.end()) {
-                    from->df.insert(to);
+                    x->df.insert(to);
                     x = x->idom;
                 }
             }
         }
+    }
+}
+
+void basic_block::DumpDomTree(std::ostream &os) {
+    os << name << ":";
+    if (idom != NULL) {
+        os << idom->name << std::endl;
+    }
+}
+
+void function::DumpDomTree(std::ostream &os) {
+    for (int i = 0; i < bbs->len; i ++ ) {
+        basic_block_ptr bb = (basic_block_ptr)bbs->buffer[i];
+        bb->DumpDomTree(os);
+    }
+}
+
+void program::DumpDomTree(std::ostream &os) {
+    for (int i = 0; i < funcs->len; i ++ ) {
+        func_ptr func = (func_ptr)funcs->buffer[i];
+        func->DumpDomTree(os);
+    }
+}
+
+void basic_block::DumpDF(std::ostream &os) {
+    os << name << ":";
+    for (auto it : df) {
+        os << it->name << " ";
+    }
+    os << std::endl;
+}
+
+void function::DumpDF(std::ostream &os) {
+    for (int i = 0; i < bbs->len; i ++ ) {
+        basic_block_ptr bb = (basic_block_ptr)bbs->buffer[i];
+        bb->DumpDF(os);
+    }
+}
+
+void program::DumpDF(std::ostream &os) {
+    for (int i = 0; i < funcs->len; i ++ ) {
+        func_ptr func = (func_ptr)funcs->buffer[i];
+        func->DumpDF(os);
     }
 }
 

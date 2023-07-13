@@ -10,6 +10,7 @@
 #include "./backend/riscv.hpp"
 #include "./midend/flow_graph.hpp"
 #include "./midend/used_by.hpp"
+#include "./midend/bbopt.hpp"
 
 using namespace std;
 
@@ -59,6 +60,11 @@ int main(int argc, const char *argv[]) {
 
     toSSA(prog);
     printf("SSA is built successfully!\n");
+
+    // printf("DomTree:\n");
+    // prog->DumpDomTree(std::cout);
+    // printf("DF:\n");
+    // prog->DumpDF(std::cout);
 
     // prog->AnalyzeLiveness();
     // printf("Liveness is built!\n");

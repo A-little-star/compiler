@@ -53,6 +53,7 @@ void replaceValue(func_ptr func, value_ptr value, value_ptr dest) {
 }
 
 void mem2reg(func_ptr func) {
+    bbopt(func);
     BuildDomTree(func);
     std::unordered_map<value_ptr, u32> alloc_ids;
     std::vector<value_ptr> allocs;
@@ -85,28 +86,35 @@ void mem2reg(func_ptr func) {
     // mem2reg算法阶段1：放置phi结点（基本块参数）
     std::vector<basic_block_ptr> worklist;
     std::unordered_map<value_ptr, u32> phis;
+    std::unordered_map<u32, u32> phiid;
     std::unordered_set<basic_block_ptr> vis;
     for (u32 id = 0; id < allocs.size(); id ++ ) {
         vis.clear();
+        std::cout << id << ": ";
         for (basic_block_ptr bb : alloc_defs[id]) {
             worklist.push_back(bb);
+            std::cout << bb->name << " ";
         }
+        std::cout << std::endl;
         while (!worklist.empty()) {
             basic_block_ptr x = worklist.back();
+            std::cout << x->name << " ";
             worklist.pop_back();
             for (basic_block_ptr y : x->df) {
                 if (!vis.count(y)) {
                     vis.insert(y);
                     value_ptr param = new value;
                     phis.insert({param, id});
+                    phiid[id] ++;
                     param->ty = *allocs[id]->ty.data.pointer.base;
                     param->kind.tag = IR_BLOCK_ARG;
                     param->kind.data.block_arg.index = y->params->len + 1;
-                    param->name = allocs[id]->name + "_" + std::to_string(phis[param]);
+                    param->name = allocs[id]->name + "_" + std::to_string(phiid[id]);
                     insertBBParam(y, param);
                     worklist.push_back(y);
                 }
             }
+            std::cout << std::endl;
         }
     }
     // mem2reg算法阶段2：变量重命名，即删除load，把load结果的引用换成对寄存器的引用，把store改成寄存器赋值

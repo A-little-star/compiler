@@ -287,6 +287,8 @@ typedef struct program {
     slice_ptr funcs;
 
     void AnalyzeLiveness();
+    void DumpDomTree(std::ostream &os);
+    void DumpDF(std::ostream &os);
 } program;
 
 typedef program *prog_ptr;
@@ -302,6 +304,17 @@ typedef struct function {
     slice_ptr bbs;
 
     void AnalyzeLiveness();
+    void DumpDomTree(std::ostream &os);
+    void DumpDF(std::ostream &os);
+    void DeleteBB(basic_block_ptr bb) {
+        for (auto it = bbs->buffer.begin(); it != bbs->buffer.end(); it ++ ) {
+            if (bb == (basic_block_ptr)(*it)) {
+                bbs->buffer.erase(it);
+                break;
+            }
+        }
+        bbs->len --;
+    }
 } function;
 
 
@@ -331,6 +344,9 @@ struct basic_block {
     std::set<value_ptr> liveuse;
     std::set<value_ptr> livein;
     std::set<value_ptr> liveout;
+
+    void DumpDomTree(std::ostream &os);
+    void DumpDF(std::ostream &os);
 
     void DeleteInst(value_ptr v) {
         for (auto it = insts->buffer.begin(); it != insts->buffer.end(); it ++ ) {
