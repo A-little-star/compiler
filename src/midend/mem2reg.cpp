@@ -62,7 +62,7 @@ void mem2reg(func_ptr func) {
         if (bb->insts->len == 0) continue;
         for (int j = 0; j < bb->insts->len; j ++ ) {
             value_ptr inst = (value_ptr)bb->insts->buffer[j];
-            if (inst->kind.tag == IR_ALLOC) {
+            if (inst->kind.tag == IR_ALLOC && inst->ty.data.pointer.base->tag == KOOPA_TYPE_INT32) {
                 alloc_ids.insert({inst, (u32)alloc_ids.size()});
                 allocs.push_back(inst);
             }
@@ -90,15 +90,11 @@ void mem2reg(func_ptr func) {
     std::unordered_set<basic_block_ptr> vis;
     for (u32 id = 0; id < allocs.size(); id ++ ) {
         vis.clear();
-        std::cout << id << ": ";
         for (basic_block_ptr bb : alloc_defs[id]) {
             worklist.push_back(bb);
-            std::cout << bb->name << " ";
         }
-        std::cout << std::endl;
         while (!worklist.empty()) {
             basic_block_ptr x = worklist.back();
-            std::cout << x->name << " ";
             worklist.pop_back();
             for (basic_block_ptr y : x->df) {
                 if (!vis.count(y)) {
@@ -114,7 +110,6 @@ void mem2reg(func_ptr func) {
                     worklist.push_back(y);
                 }
             }
-            std::cout << std::endl;
         }
     }
     // mem2reg算法阶段2：变量重命名，即删除load，把load结果的引用换成对寄存器的引用，把store改成寄存器赋值
@@ -142,9 +137,11 @@ void mem2reg(func_ptr func) {
             for (int i = 0; i < bb->insts->len; i ++ ) {
                 value_ptr inst = (value_ptr)bb->insts->buffer[i];
                 if (auto it = alloc_ids.find(inst); it != alloc_ids.end()) {
-                    bb->DeleteInst(inst);
-                    delete inst;
-                    i --;
+                    if (inst->ty.data.pointer.base->tag == KOOPA_TYPE_INT32) {
+                        bb->DeleteInst(inst);
+                        delete inst;
+                        i --;
+                    }
                 } else if (inst->kind.tag == IR_LOAD) {
                     auto it = alloc_ids.find(inst->kind.data.load.src);
                     if (it != alloc_ids.end()) {
@@ -154,9 +151,9 @@ void mem2reg(func_ptr func) {
                         delete inst;
                         i --;
                     }
-                    else {
-                        assert(false);
-                    }
+                    // else {
+                    //     assert(false);
+                    // }
                 } else if (inst->kind.tag == IR_STORE) {
                     auto it = alloc_ids.find(inst->kind.data.store.dest);
                     if (it != alloc_ids.end()) {
@@ -166,9 +163,9 @@ void mem2reg(func_ptr func) {
                         delete inst;
                         i --;
                     }
-                    else {
-                        assert(false);
-                    }
+                    // else {
+                    //     assert(false);
+                    // }
                 }
             }
             for (basic_block_ptr x : bb->next) {

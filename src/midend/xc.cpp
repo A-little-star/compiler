@@ -223,6 +223,25 @@ void GenCode(const value_ptr val, std::ostream &os) {
                     }
                     break;
                 }
+                case IR_FUNC_ARG:
+                case IR_BLOCK_ARG:
+                    switch (val->kind.data.get_ptr.src->kind.tag) {
+                        case IR_ALLOC:
+                        case IR_GLOBAL_ALLOC:
+                        case IR_FUNC_ARG:
+                        case IR_BLOCK_ARG:
+                            os << "  %" << val_id << " = getptr " << val->kind.data.get_ptr.src->name << ", " << val->kind.data.get_ptr.index->name << std::endl;
+                            break;
+                        case IR_GET_ELEM_PTR:
+                        case IR_GET_PTR:
+                        case IR_LOAD:
+                        case IR_CALL:
+                        case IR_BINARY:
+                            os << "  %" << val_id << " = getptr %" << val_map[val->kind.data.get_ptr.src] << ", " << val->kind.data.get_ptr.index->name << std::endl;
+                            break;
+                        default: assert(false);
+                    }
+                    break;
                 case IR_ALLOC:
                 case IR_BINARY:
                 case IR_CALL:
@@ -237,6 +256,8 @@ void GenCode(const value_ptr val, std::ostream &os) {
                         }
                         case IR_LOAD:
                         case IR_GET_ELEM_PTR:
+                        case IR_FUNC_ARG:
+                        case IR_BLOCK_ARG:
                         case IR_BINARY: {
                             os << "  %" << val_id << " = getptr %" << val_map[val->kind.data.get_ptr.src] << ", %" << val_map[val->kind.data.get_ptr.index] << std::endl;
                             break;
@@ -264,6 +285,25 @@ void GenCode(const value_ptr val, std::ostream &os) {
                     else assert(false);
                     break;
                 }
+                case IR_FUNC_ARG:
+                case IR_BLOCK_ARG:
+                    switch (val->kind.data.get_elem_ptr.src->kind.tag) {
+                        case IR_ALLOC:
+                        case IR_GLOBAL_ALLOC:
+                        case IR_FUNC_ARG:
+                        case IR_BLOCK_ARG:
+                            os << "  %" << val_id << " = getelemptr " << val->kind.data.get_elem_ptr.src->name << ", " << val->kind.data.get_elem_ptr.index->name << std::endl;
+                            break;
+                        case IR_GET_ELEM_PTR:
+                        case IR_GET_PTR:
+                        case IR_LOAD:
+                        case IR_CALL:
+                        case IR_BINARY:
+                            os << "  %" << val_id << " = getelemptr %" << val_map[val->kind.data.get_elem_ptr.src] << ", " << val->kind.data.get_elem_ptr.index->name << std::endl;
+                            break;
+                        default: assert(false);
+                    }
+                    break;
                 case IR_ALLOC:
                 case IR_BINARY:
                 case IR_CALL:
@@ -271,12 +311,25 @@ void GenCode(const value_ptr val, std::ostream &os) {
                 case IR_GLOBAL_ALLOC:
                 case IR_LOAD:
                 {
-                    if (val->kind.data.get_elem_ptr.src->kind.tag == IR_ALLOC || val->kind.data.get_elem_ptr.src->kind.tag == IR_GLOBAL_ALLOC)
-                        os << "  %" << val_id << " = getelemptr " << val->kind.data.get_elem_ptr.src->name << ", " << "%" << val_map[val->kind.data.get_elem_ptr.index] << std::endl;
-                    else if (val->kind.data.get_elem_ptr.src->kind.tag == IR_GET_ELEM_PTR || val->kind.data.get_elem_ptr.src->kind.tag == IR_GET_PTR) {
-                        os << "  %" << val_id << " = getelemptr " << "%" << val_map[val->kind.data.get_elem_ptr.src] << ", %" << val_map[val->kind.data.get_elem_ptr.index] << std::endl;
+                    switch (val->kind.data.get_elem_ptr.src->kind.tag) {
+                        case IR_ALLOC:
+                        case IR_GLOBAL_ALLOC:
+                        case IR_FUNC_ARG:
+                        case IR_BLOCK_ARG:
+                            os << "  %" << val_id << " = getelemptr " << val->kind.data.get_elem_ptr.src->name << ", " << "%" << val_map[val->kind.data.get_elem_ptr.index] << std::endl;
+                            break;
+                        case IR_GET_ELEM_PTR:
+                        case IR_GET_PTR:
+                            os << "  %" << val_id << " = getelemptr " << "%" << val_map[val->kind.data.get_elem_ptr.src] << ", %" << val_map[val->kind.data.get_elem_ptr.index] << std::endl;
+                            break;
+                        default: assert(false);
                     }
-                    else assert(false);
+                    // if (val->kind.data.get_elem_ptr.src->kind.tag == IR_ALLOC || val->kind.data.get_elem_ptr.src->kind.tag == IR_GLOBAL_ALLOC)
+                    //     os << "  %" << val_id << " = getelemptr " << val->kind.data.get_elem_ptr.src->name << ", " << "%" << val_map[val->kind.data.get_elem_ptr.index] << std::endl;
+                    // else if (val->kind.data.get_elem_ptr.src->kind.tag == IR_GET_ELEM_PTR || val->kind.data.get_elem_ptr.src->kind.tag == IR_GET_PTR) {
+                    //     os << "  %" << val_id << " = getelemptr " << "%" << val_map[val->kind.data.get_elem_ptr.src] << ", %" << val_map[val->kind.data.get_elem_ptr.index] << std::endl;
+                    // }
+                    // else assert(false);
                     break;
                 }
                 default: assert(false);
@@ -312,6 +365,8 @@ void GenCode(const value_ptr val, std::ostream &os) {
                         os << arg->kind.data.integer.value;
                     else if (arg->kind.tag == IR_BLOCK_ARG)
                         os << arg->name;
+                    else if (arg->kind.tag == IR_FUNC_ARG)
+                        os << arg->name;
                     else
                         os << "%" << val_map[arg];
                 }
@@ -331,6 +386,8 @@ void GenCode(const value_ptr val, std::ostream &os) {
                     if (arg->kind.tag == IR_INTEGER)
                         os << arg->kind.data.integer.value;
                     else if (arg->kind.tag == IR_BLOCK_ARG)
+                        os << arg->name;
+                    else if (arg->kind.tag == IR_FUNC_ARG)
                         os << arg->name;
                     else
                         os << "%" << val_map[arg];
@@ -359,6 +416,8 @@ void GenCode(const value_ptr val, std::ostream &os) {
                     if (arg->kind.tag == IR_INTEGER)
                         os << arg->kind.data.integer.value;
                     else if (arg->kind.tag == IR_BLOCK_ARG)
+                        os << arg->name;
+                    else if (arg->kind.tag == IR_FUNC_ARG)
                         os << arg->name;
                     else
                         os << "%" << val_map[arg];
@@ -564,37 +623,37 @@ void FreeMem(basic_block_ptr bb) {
 }
 
 void FreeMem(value_ptr val) {
-    auto &kind = val->kind;
-    switch (kind.tag) {
-        case IR_CALL:
-        {
-            if (kind.data.call.args != NULL) {
-                for (size_t i = 0; i < kind.data.call.args->len; i ++ ) {
-                    value_ptr ptr = (value_ptr)kind.data.call.args->buffer[i];
-                    if (ptr->kind.tag == IR_INTEGER) FreeMem(ptr);
-                }
-                // FreeMem(kind.data.call.args);
-            }
-            break;
-        }
-        case IR_RETURN:
-        {
-            if (kind.data.ret.value == NULL) break;
-            if (kind.data.ret.value->kind.tag == IR_INTEGER)
-                FreeMem(kind.data.ret.value);
-            break;
-        }
-        case IR_BINARY:
-        {
-            // if (kind.data.binary.lhs != NULL && kind.data.binary.lhs->kind.tag == IR_INTEGER)
-            //     FreeMem(kind.data.binary.lhs);
-            // if (kind.data.binary.rhs != NULL && kind.data.binary.rhs->kind.tag == IR_INTEGER)
-            //     FreeMem(kind.data.binary.rhs);
-            break;
-        }
-        default:
-            break;
-    }
+    // auto &kind = val->kind;
+    // switch (kind.tag) {
+    //     case IR_CALL:
+    //     {
+    //         if (kind.data.call.args != NULL) {
+    //             for (size_t i = 0; i < kind.data.call.args->len; i ++ ) {
+    //                 value_ptr ptr = (value_ptr)kind.data.call.args->buffer[i];
+    //                 if (ptr->kind.tag == IR_INTEGER) FreeMem(ptr);
+    //             }
+    //             // FreeMem(kind.data.call.args);
+    //         }
+    //         break;
+    //     }
+    //     case IR_RETURN:
+    //     {
+    //         if (kind.data.ret.value == NULL) break;
+    //         if (kind.data.ret.value->kind.tag == IR_INTEGER)
+    //             FreeMem(kind.data.ret.value);
+    //         break;
+    //     }
+    //     case IR_BINARY:
+    //     {
+    //         // if (kind.data.binary.lhs != NULL && kind.data.binary.lhs->kind.tag == IR_INTEGER)
+    //         //     FreeMem(kind.data.binary.lhs);
+    //         // if (kind.data.binary.rhs != NULL && kind.data.binary.rhs->kind.tag == IR_INTEGER)
+    //         //     FreeMem(kind.data.binary.rhs);
+    //         break;
+    //     }
+    //     default:
+    //         break;
+    // }
     if (val != NULL) {
         delete val;
         val = NULL;
